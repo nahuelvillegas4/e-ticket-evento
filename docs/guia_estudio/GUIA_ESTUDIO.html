@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>Guía de Estudio — e-TicketEvento</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm 18mm 16mm; }
+  * { box-sizing: border-box; }
+  body { font-family: "Segoe UI", Calibri, Arial, sans-serif; font-size: 10.5pt; line-height: 1.45; color: #1d2330; margin: 0; }
+  h1 { font-size: 20pt; color: #0b3d6b; border-bottom: 3px solid #0b3d6b; padding-bottom: 4px; margin: 0 0 12px 0; }
+  h2 { font-size: 14pt; color: #0b3d6b; margin: 18px 0 8px 0; border-left: 5px solid #2a7fc1; padding-left: 8px; }
+  h3 { font-size: 11.5pt; color: #154f7f; margin: 14px 0 6px 0; }
+  p { margin: 5px 0 8px 0; }
+  ul, ol { margin: 4px 0 8px 0; padding-left: 22px; }
+  li { margin: 2px 0; }
+  code { font-family: Consolas, "Courier New", monospace; font-size: 9.2pt; background: #eef2f7; padding: 0 3px; border-radius: 3px; }
+  pre { font-family: Consolas, "Courier New", monospace; font-size: 8.6pt; background: #f4f6fa; border: 1px solid #d5dce6; border-left: 4px solid #2a7fc1; padding: 8px 10px; white-space: pre-wrap; page-break-inside: avoid; margin: 6px 0 10px 0; }
+  table { width: 100%; border-collapse: collapse; margin: 6px 0 12px 0; font-size: 9.4pt; page-break-inside: auto; }
+  tr { page-break-inside: avoid; }
+  th { background: #0b3d6b; color: #fff; text-align: left; padding: 5px 6px; }
+  td { border: 1px solid #ccd5e0; padding: 4px 6px; vertical-align: top; }
+  tr:nth-child(even) td { background: #f6f8fb; }
+  .section { page-break-before: always; }
+  .box { border-radius: 6px; padding: 8px 12px; margin: 8px 0 12px 0; page-break-inside: avoid; }
+  .info { background: #eaf3fb; border: 1px solid #a9cbe8; }
+  .warn { background: #fff5e6; border: 1px solid #f0c27a; }
+  .crit { background: #fdecec; border: 1px solid #eca5a5; }
+  .ok { background: #ebf7ee; border: 1px solid #9fd4ad; }
+  .box b.t { display: block; margin-bottom: 3px; }
+  .say { background: #f3effa; border-left: 4px solid #7a5cc2; padding: 6px 10px; margin: 6px 0 10px 0; font-style: italic; page-break-inside: avoid; }
+  .cover { height: 250mm; display: flex; flex-direction: column; justify-content: center; text-align: center; }
+  .cover h1 { border: none; font-size: 28pt; margin-bottom: 6px; }
+  .cover .sub { font-size: 14pt; color: #154f7f; margin-bottom: 30px; }
+  .cover .meta { font-size: 11pt; line-height: 1.8; }
+  .cover .tag { display: inline-block; background: #0b3d6b; color: #fff; padding: 6px 16px; border-radius: 20px; font-size: 11pt; margin-bottom: 30px; }
+  .toc li { margin: 3px 0; }
+  .diagram { display: flex; gap: 10px; margin: 10px 0 14px 0; page-break-inside: avoid; }
+  .diagram .c { flex: 1; border: 2px solid #2a7fc1; border-radius: 8px; padding: 8px; background: #f4f9fe; font-size: 9pt; }
+  .diagram .c h4 { margin: 0 0 4px 0; color: #0b3d6b; font-size: 10pt; text-align: center; }
+  .flow { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 8px 0 12px 0; page-break-inside: avoid; }
+  .st { border: 2px solid #2a7fc1; border-radius: 16px; padding: 4px 10px; background: #f4f9fe; font-weight: 600; font-size: 9.2pt; }
+  .st.final { border-style: double; border-width: 4px; border-color: #0b3d6b; }
+  .st.logic { border-style: dashed; background: #fff; }
+  .arr { color: #555; font-size: 9pt; }
+  .small { font-size: 9pt; color: #555; }
+  .two { display: flex; gap: 12px; }
+  .two > div { flex: 1; }
+  .pill { display: inline-block; font-size: 8.5pt; padding: 0 6px; border-radius: 8px; background: #dde8f3; color: #0b3d6b; font-weight: 600; }
+  .q { font-weight: 700; color: #0b3d6b; margin-top: 10px; }
+  .a { margin: 2px 0 8px 0; }
+</style>
+</head>
+<body>
+
+<!-- ============================ PORTADA ============================ -->
+<div class="cover">
+  <div class="tag">GUÍA DE ESTUDIO PARA EL DEMO DAY</div>
+  <h1>e-TicketEvento</h1>
+  <div class="sub">Entradas tokenizadas para eventos masivos<br>Del modelado (Actividad 4) al código en Solidity</div>
+  <div class="meta">
+    <b>Desarrollo con Tecnologías Blockchain</b> — UTN FRC — Comisión 5K3A<br>
+    Docentes: Dr. Oscar Carlos Medina · Esp. Rubén Aníbal Romero<br><br>
+    95346 – Chas Díaz, Lucas Martín<br>
+    95345 – Tombesi, Gino Paolo<br>
+    94837 – Villegas, Angel Nahuel<br>
+    94543 – Rottino, Juan Ignacio<br><br>
+    <b>Demo Day: lunes 16/11/2026</b> · Formato charla TED, máximo 7 minutos
+  </div>
+</div>
+
+<!-- ============================ ÍNDICE ============================ -->
+<div class="section">
+<h1>Índice</h1>
+<ol class="toc">
+  <li>Cómo usar esta guía</li>
+  <li>El problema y la propuesta (repaso de la Actividad 4)</li>
+  <li>Conceptos técnicos que tenés que dominar</li>
+  <li>Arquitectura: los tres contratos y los roles</li>
+  <li>Recorrido por cada contrato</li>
+  <li>Los cinco flujos principales, paso a paso</li>
+  <li>Estados de la entrada (DTE): guardados y lógicos</li>
+  <li>Qué cambió entre el modelo y el código, y por qué</li>
+  <li>Seguridad: cada ataque y su defensa</li>
+  <li>Pruebas automatizadas y cobertura</li>
+  <li>La demo en vivo, explicada</li>
+  <li>Limitaciones reales del código (decirlas antes de que las pregunten)</li>
+  <li>Preguntas probables del jurado y cómo responderlas</li>
+  <li>Hoja de repaso rápido</li>
+</ol>
+
+<h2>1. Cómo usar esta guía</h2>
+<p>El trabajo tiene dos partes que conviene no mezclar:</p>
+<ul>
+  <li><b>La Actividad 4 (el PDF entregado):</b> es el <i>modelado</i> del contrato inteligente con la metodología de la cátedra: proceso, caso de uso, activo, participantes, atributos, transacciones, DTE, innovación, tecnología, one pager, beneficios y desafíos.</li>
+  <li><b>La implementación (carpeta <code>e-ticket-evento/</code>):</b> tres contratos en Solidity, 34 pruebas automatizadas (27 casos CP-01 a CP-27 + 7 suites de borde) y scripts de despliegue/demo que ejecutan ese modelo tanto en red EVM local (Hardhat) como en la red pública de prueba <b>Polygon Amoy</b>.</li>
+</ul>
+<p>Al pasar del modelo al código hubo que cambiar algunas decisiones, porque la EVM tiene restricciones (gas, privacidad, seguridad) que el modelo no considera. Esos cambios están en la <b>Sección 8</b> y son, probablemente, lo que más te van a preguntar.</p>
+<div class="box warn"><b class="t">Para estudiar con prioridad</b>
+Si tenés poco tiempo: Sección 2 (el problema), Sección 4 (arquitectura), Sección 6 (flujos), Sección 8 (modelo vs código), Sección 12 (limitaciones) y Sección 13 (preguntas).</div>
+<p class="small">Convenciones: las cajas violetas en cursiva son frases sugeridas para decir en voz alta. Los nombres en <code>monoespaciado</code> son funciones, variables o errores del código.</p>
+</div>
+
+<!-- ============================ 2. PROBLEMA ============================ -->
+<div class="section">
+<h1>2. El problema y la propuesta</h1>
+
+<h2>2.1 Proceso elegido</h2>
+<p><b>Emisión, comercialización, reventa y control de acceso de entradas para eventos masivos</b> (recitales, espectáculos y partidos de fútbol), desde que el organizador pone las entradas a la venta hasta que el espectador ingresa o la entrada pierde validez.</p>
+
+<h2>2.2 Los cinco problemas del proceso actual</h2>
+<table>
+  <tr><th style="width:24%">Problema</th><th>Qué pasa hoy</th><th style="width:32%">Cómo lo ataca e-TicketEvento</th></tr>
+  <tr><td><b>Entradas falsas o duplicadas</b></td><td>Un QR estático se fotografía o reenvía; varias personas tienen "la misma" entrada y solo una entra.</td><td>Entrada = NFT único. QR dinámico firmado por la billetera del titular, que vence en 60 s.</td></tr>
+  <tr><td><b>Reventa especulativa</b></td><td>Bots y revendedores acaparan y revenden con sobreprecio. Es contravención en CABA (Ley 5174) y la Ley 23.184 la sanciona en espectáculos deportivos, pero el control depende de operativos.</td><td>Transferencias bloqueadas fuera del contrato. Reventa solo en el Marketplace oficial, con tope de precio y límite de transferencias.</td></tr>
+  <tr><td><b>El artista no participa de la reventa</b></td><td>Todo el sobreprecio queda en manos de terceros.</td><td>Regalía automática en cada reventa (estándar ERC-2981).</td></tr>
+  <tr><td><b>Reembolsos lentos</b></td><td>Si el evento se suspende, la devolución depende de la ticketera y puede tardar semanas.</td><td>El dinero queda en custodia (escrow) en el contrato; si se cancela, cada titular reclama su reembolso.</td></tr>
+  <tr><td><b>Control de admisión aislado</b></td><td>En el fútbol se cruza el DNI con Tribuna Segura, pero la entrada no está vinculada de forma verificable con su titular.</td><td>Compromiso de identidad (hash del DNI con salt) firmado por un verificador autorizado y comprobado en la puerta.</td></tr>
+</table>
+
+<h2>2.3 Por qué blockchain agrega valor (criterio de la cátedra)</h2>
+<ul>
+  <li><b>Muchos actores que no confían entre sí:</b> organizadores, ticketeras, revendedores, clubes y público comparten el mismo activo. Con una base de datos de la ticketera, todos tienen que confiar en ella.</li>
+  <li><b>Autenticidad verificable por cualquiera:</b> en una red pública, el titular de cada entrada se consulta sin pedir permiso.</li>
+  <li><b>Reglas que se cumplen solas:</b> tope, límite de transferencias y regalía están en el código.</li>
+  <li><b>Historial inmutable:</b> cada emisión, venta, reventa e ingreso queda registrado (los <i>events</i> de Solidity).</li>
+  <li><b>Interoperabilidad:</b> ERC-721 es un estándar; cualquier billetera compatible puede mostrar la entrada.</li>
+</ul>
+
+<div class="say">"La innovación de fondo es que las reglas del negocio dejan de depender de quien vende la entrada y pasan a estar en el propio activo."</div>
+
+<h2>2.4 Caso de uso, activo y participantes</h2>
+<ul>
+  <li><b>Caso de uso:</b> tokenización de activos / NFT (casos de uso vistos en clase). Hay antecedentes reales: Ticketmaster (Flow y Polygon) y OPEN Ticketing Ecosystem (ex GET Protocol).</li>
+  <li><b>Activo principal:</b> la entrada, un <i>activo lógico</i> (derecho de acceso a un lugar, fecha y ubicación), representada como NFT ERC-721.</li>
+  <li><b>Activo secundario:</b> el dinero en custodia hasta que el evento se realiza.</li>
+  <li><b>Participantes:</b> organizador/club, plataforma de ticketing, comprador/titular, comprador secundario, artista/club, validador de acceso, pasarela de pago, oráculo y organismos de control (Defensa del Consumidor, Tribuna Segura).</li>
+</ul>
+
+<h2>2.5 Tecnología elegida</h2>
+<ul>
+  <li><b>Red:</b> Polygon PoS (pública, compatible con la EVM, bajo costo). Ethereum mainnet descartada por el gas; una red permisionada, descartada porque contradice la idea de red abierta.</li>
+  <li><b>Lenguaje:</b> Solidity 0.8.24. Estándares ERC-721 (NFT) y ERC-2981 (regalías).</li>
+  <li><b>Herramientas de la implementación:</b> Hardhat (red local, tests, manipulación del tiempo), ethers v6, OpenZeppelin Contracts 5.x (librerías auditadas).</li>
+</ul>
+</div>
+
+<!-- ============================ 3. CONCEPTOS ============================ -->
+<div class="section">
+<h1>3. Conceptos técnicos que tenés que dominar</h1>
+<p>Para cada concepto: qué es y dónde aparece en el proyecto.</p>
+
+<table>
+  <tr><th style="width:20%">Concepto</th><th>Qué es (en simple)</th><th style="width:30%">Dónde se usa</th></tr>
+  <tr><td><b>Contrato inteligente</b></td><td>Programa guardado en la blockchain que se ejecuta solo cuando alguien lo llama y se cumplen sus condiciones. Nadie puede cambiar su lógica una vez desplegado.</td><td>Los 3 contratos <code>.sol</code>.</td></tr>
+  <tr><td><b>EVM y gas</b></td><td>La EVM es la "computadora" que ejecuta los contratos. Cada operación cuesta gas, y hay un límite de gas por bloque: una función demasiado cara no puede ejecutarse.</td><td>Motivo del lazy mint y de que no haya bucles sobre entradas.</td></tr>
+  <tr><td><b>NFT / ERC-721</b></td><td>Token único con un dueño (<code>ownerOf(tokenId)</code>). El estándar define cómo consultarlo y transferirlo.</td><td><code>EntradaNFT.sol</code>.</td></tr>
+  <tr><td><b>ERC-2981</b></td><td>Estándar que <i>informa</i> qué regalía corresponde en una venta (<code>royaltyInfo</code>). No obliga a pagarla: por eso hay que bloquear las transferencias directas.</td><td><code>EntradaNFT</code> la informa, el <code>ReventaMarketplace</code> la paga.</td></tr>
+  <tr><td><b>Hash (keccak256)</b></td><td>Función que resume un dato en 32 bytes. No se puede invertir, pero si el dato tiene pocas posibilidades (un DNI tiene ~10<sup>8</sup>) se puede adivinar probando todas.</td><td>Compromiso de identidad.</td></tr>
+  <tr><td><b>Salt</b></td><td>Valor aleatorio secreto que se agrega antes de hashear. Con salt, probar todos los DNI ya no sirve porque falta el salt.</td><td><code>keccak256(abi.encode(DNI, salt))</code>.</td></tr>
+  <tr><td><b>Firma digital (ECDSA)</b></td><td>Con la clave privada se firma un mensaje; cualquiera puede verificar, con <code>ECDSA.recover</code>, qué dirección lo firmó.</td><td>Firma del verificador (identidad) y del titular (QR).</td></tr>
+  <tr><td><b>EIP-712</b></td><td>Estándar para firmar datos <i>estructurados</i> (con nombres y tipos), atados a un contrato y a una red (el "dominio"). Evita que una firma se reutilice en otro contrato u otra red.</td><td><code>VerificarIdentidad(...)</code> y <code>ValidarAcceso(...)</code>.</td></tr>
+  <tr><td><b>AccessControl (roles)</b></td><td>Librería de OpenZeppelin: cada función sensible exige un rol (<code>onlyRole</code>). Si no lo tenés, revierte con <code>AccessControlUnauthorizedAccount</code>.</td><td>Los 3 contratos.</td></tr>
+  <tr><td><b>Oráculo</b></td><td>Servicio que trae información del mundo real a la blockchain (el contrato no puede "saber" solo si el recital se hizo).</td><td><code>ORACULO_ROLE</code>: <code>cancelarEvento</code>, <code>cerrarEvento</code>.</td></tr>
+  <tr><td><b>Escrow (custodia)</b></td><td>El contrato retiene el dinero hasta que se cumple una condición.</td><td><code>balanceCustodia</code> de cada evento.</td></tr>
+  <tr><td><b>Patrón pull</b></td><td>En vez de que el contrato <i>envíe</i> dinero a muchos (push), cada uno <i>retira</i> lo suyo. Si un receptor falla, no bloquea a los demás.</td><td><code>saldosPendientes</code> + <code>retirarFondos()</code>, <code>reclamarReembolso()</code>.</td></tr>
+  <tr><td><b>Reentrancia</b></td><td>Ataque: al recibir ETH, un contrato malicioso vuelve a llamar a la función que le pagó antes de que se actualice su saldo, y cobra varias veces.</td><td>Defensas: <code>nonReentrant</code> + CEI. Probado en CP-27.</td></tr>
+  <tr><td><b>CEI</b></td><td><i>Checks-Effects-Interactions</i>: primero validar, después actualizar el estado, y recién al final llamar a otros contratos o enviar dinero.</td><td><code>retirarFondos()</code> pone el saldo en 0 antes de enviar.</td></tr>
+  <tr><td><b>Lazy mint</b></td><td>Acuñar el NFT en el momento de la compra, no todos por adelantado.</td><td><code>comprarEntrada()</code> llama a <code>mint()</code>.</td></tr>
+  <tr><td><b>Basis points (bps)</b></td><td>1 bp = 0,01 %. 10.000 bps = 100 %. Solidity no tiene decimales; trabajar en bps y multiplicar antes de dividir evita perder precisión.</td><td><code>topeReventaBps = 2000</code> (+20 %), <code>regaliaArtistaBps = 1000</code> (10 %).</td></tr>
+  <tr><td><b>Custom errors</b></td><td>Errores con nombre (<code>revert PrecioSuperaTope()</code>) en vez de textos. Gastan menos gas y los tests pueden verificar el error exacto.</td><td>Todos los contratos.</td></tr>
+  <tr><td><b>Events (logs)</b></td><td>Registros que emite el contrato y quedan en la blockchain. Son el "historial auditable".</td><td><code>EventoCreado</code>, <code>EntradaRevendida</code>, <code>IngresoValidado</code>...</td></tr>
+</table>
+</div>
+
+<!-- ============================ 4. ARQUITECTURA ============================ -->
+<div class="section">
+<h1>4. Arquitectura: los tres contratos y los roles</h1>
+<p>Igual que en la Actividad 4 (Sección 3.2.6), el sistema son <b>tres contratos coordinados</b>. Un mismo despliegue administra muchos eventos.</p>
+
+<div class="diagram">
+  <div class="c"><h4>EventManager.sol</h4>
+    <b>"El administrador y la caja"</b><br>
+    • Crea eventos y guarda sus reglas<br>
+    • Vende la entrada primaria (y pide el mint)<br>
+    • Cuenta entradas por identidad<br>
+    • Custodia el dinero (escrow)<br>
+    • Cancela / cierra (oráculo)<br>
+    • Reembolsos y retiros (pull)</div>
+  <div class="c"><h4>EntradaNFT.sol</h4>
+    <b>"La entrada"</b><br>
+    • NFT ERC-721 + regalía ERC-2981<br>
+    • Datos de cada entrada (estado, compromiso, transferencias)<br>
+    • Candado: bloquea transferencias directas<br>
+    • <code>validarIngreso</code> con QR dinámico<br>
+    • <code>estadoEfectivo</code> (estados lógicos)</div>
+  <div class="c"><h4>ReventaMarketplace.sol</h4>
+    <b>"El único canal de reventa"</b><br>
+    • Publicar con tope de precio<br>
+    • Custodia el NFT publicado<br>
+    • Retirar publicación<br>
+    • Revender: reparte el pago entre artista, plataforma y vendedor</div>
+</div>
+
+<h3>Cómo se hablan entre sí</h3>
+<ul>
+  <li><b>EventManager → EntradaNFT:</b> <code>mint()</code> al comprar; <code>cambiarEstado()</code> al reembolsar.</li>
+  <li><b>Marketplace → EntradaNFT:</b> <code>transferenciaRegulada()</code>, <code>cambiarEstado()</code>, <code>actualizarCompromisoYTransferencias()</code>, <code>royaltyInfo()</code>.</li>
+  <li><b>Marketplace → EventManager:</b> <code>registrarTransferenciaIdentidad()</code> (cupo por persona) y <code>acreditar()</code> (deposita los montos del reparto).</li>
+  <li><b>EntradaNFT → EventManager:</b> solo lectura, <code>obtenerEstadoEvento()</code>, para saber si el evento está Programado/Finalizado/Cancelado.</li>
+  <li><b>EventManager → Marketplace:</b> <code>obtenerVendedorDeToken()</code> y <code>cerrarPorReembolso()</code> cuando se reembolsa una entrada publicada.</li>
+</ul>
+
+<h2>4.1 Roles (AccessControl)</h2>
+<table>
+  <tr><th>Rol</th><th>Contrato</th><th>Quién lo tiene</th><th>Qué permite</th></tr>
+  <tr><td><code>DEFAULT_ADMIN_ROLE</code></td><td>Los tres</td><td>Quien despliega (en producción: multisig)</td><td>Dar y quitar roles, configurar referencias</td></tr>
+  <tr><td><code>ORGANIZADOR_ROLE</code></td><td>EventManager</td><td>Organizadores habilitados</td><td><code>crearEvento()</code></td></tr>
+  <tr><td><code>ORACULO_ROLE</code></td><td>EventManager</td><td>Oráculo, <b>distinto del organizador</b></td><td><code>cancelarEvento()</code>, <code>cerrarEvento()</code></td></tr>
+  <tr><td><code>VERIFICADOR_ROLE</code></td><td>EventManager</td><td>Tribuna Segura / KYC</td><td>Sus firmas validan compromisos de identidad</td></tr>
+  <tr><td><code>MARKETPLACE_ROLE</code></td><td>EventManager</td><td>El contrato ReventaMarketplace</td><td>Actualizar cupo por persona y acreditar saldos</td></tr>
+  <tr><td><code>OPERADOR_ROLE</code></td><td>EntradaNFT</td><td>EventManager y ReventaMarketplace</td><td>Acuñar, cambiar estado, transferir de forma regulada</td></tr>
+  <tr><td><code>VALIDADOR_ROLE</code></td><td>EntradaNFT</td><td>Personal / lectores de puerta</td><td><code>validarIngreso()</code></td></tr>
+</table>
+
+<div class="box info"><b class="t">¿Por qué el oráculo es distinto del organizador?</b>
+Porque <code>cerrarEvento()</code> libera el dinero de la custodia al organizador. Si el organizador pudiera cerrarlo él mismo, podría cobrar sin que el evento se haya hecho. Separar el rol es lo que hace creíble el escrow. (En la Actividad 4, <code>cancelarEvento</code> lo ejecutaba "el organizador vía oráculo"; en el código solo lo ejecuta el oráculo.)</div>
+
+<h2>4.2 Orden de despliegue</h2>
+<p>Los contratos se necesitan entre sí (dependencia circular). Se resuelve desplegando en orden y dando permisos después (<code>scripts/deploy.js</code>):</p>
+<ol>
+  <li>Desplegar <code>EntradaNFT</code>.</li>
+  <li>Desplegar <code>EventManager(direcciónEntradaNFT)</code>.</li>
+  <li>Desplegar <code>ReventaMarketplace(direcciónEntradaNFT, direcciónEventManager)</code>.</li>
+  <li>Conectar: <code>entradaNFT.setEventManager(...)</code> y <code>eventManager.setMarketplace(...)</code>.</li>
+  <li>Dar <code>OPERADOR_ROLE</code> (en EntradaNFT) a EventManager y Marketplace, y <code>MARKETPLACE_ROLE</code> (en EventManager) al Marketplace.</li>
+  <li>Dar los roles humanos: organizador, oráculo, verificador y validador.</li>
+</ol>
+</div>
+
+<!-- ============================ 5. CONTRATOS ============================ -->
+<div class="section">
+<h1>5. Recorrido por cada contrato</h1>
+
+<h2>5.1 EventManager.sol</h2>
+<h3>Datos que guarda</h3>
+<pre>struct Evento {
+    uint256 idEvento;  string nombre;  TipoEvento tipoEvento;   // Recital, Espectaculo, Futbol
+    uint64 fechaHora;  string lugar;
+    address organizador;  address artista;  address plataformaTicketing;
+    uint256 precioBase;            // en wei
+    uint32 capacidad;  uint32 vendidas;
+    uint16 topeReventaBps;         // 2000 = +20 %
+    uint16 regaliaArtistaBps;      // 1000 = 10 %
+    uint16 comisionPlataformaBps;  // 500 = 5 %
+    uint8 limitePorPersona;  uint8 maxTransferencias;
+    bool requiereAdmision;
+    EstadoEvento estado;           // Programado, Finalizado, Cancelado
+    uint256 balanceCustodia;       // dinero retenido de este evento
+}
+mapping(uint256 =&gt; Evento) eventos;
+mapping(uint256 =&gt; mapping(bytes32 =&gt; uint256)) entradasPorPersona; // evento =&gt; compromiso =&gt; cantidad
+mapping(address =&gt; uint256) saldosPendientes;                      // lo que cada uno puede retirar</pre>
+
+<h3>Funciones</h3>
+<table>
+  <tr><th style="width:28%">Función</th><th style="width:16%">Quién</th><th>Qué controla y qué hace</th></tr>
+  <tr><td><code>crearEvento(...)</code></td><td>Organizador</td><td>Valida: id no usado, fecha futura, capacidad &gt; 0, precio &gt; 0, direcciones no nulas, regalía + comisión &lt; 100 %, límite por persona &gt; 0. Guarda el evento en estado <i>Programado</i>.</td></tr>
+  <tr><td><code>comprarEntrada(idEvento, compromiso, firma)</code> <span class="pill">payable</span></td><td>Comprador</td><td>Evento Programado y antes de la fecha; hay cupo; paga exactamente <code>precioBase</code>; la firma EIP-712 es de un verificador; no superó el límite por persona. <b>Primero</b> actualiza contadores y custodia, <b>después</b> acuña el NFT.</td></tr>
+  <tr><td><code>cancelarEvento(id)</code></td><td>Oráculo</td><td>Solo si está Programado y antes de la fecha. Cambia el estado a <i>Cancelado</i>. <b>No recorre entradas.</b></td></tr>
+  <tr><td><code>cerrarEvento(id)</code></td><td>Oráculo</td><td>Solo si pasaron <code>fechaHora + 1 día</code> (<code>MARGEN_CIERRE</code>). Estado <i>Finalizado</i>; la custodia pasa al saldo del organizador.</td></tr>
+  <tr><td><code>reclamarReembolso(tokenId)</code></td><td>Titular</td><td>Evento Cancelado, entrada no usada ni reembolsada. Si está <i>Asignada</i>, la reclama el dueño; si está <i>En reventa</i>, el vendedor de la publicación. Marca <i>Reembolsada</i> y acredita el <code>precioOriginal</code>.</td></tr>
+  <tr><td><code>registrarTransferenciaIdentidad(...)</code></td><td>Marketplace</td><td>Verifica la firma del verificador para el comprador, revisa su límite por persona, resta 1 al vendedor y suma 1 al comprador.</td></tr>
+  <tr><td><code>acreditar(beneficiario)</code> <span class="pill">payable</span></td><td>Marketplace</td><td>Suma lo enviado al saldo del beneficiario.</td></tr>
+  <tr><td><code>retirarFondos()</code></td><td>Cualquiera con saldo</td><td>Pone el saldo en 0 y después envía el dinero (<code>call</code>). Protegida con <code>nonReentrant</code>.</td></tr>
+</table>
+
+<h2>5.2 EntradaNFT.sol</h2>
+<pre>enum EstadoEntrada { Asignada, EnReventa, Utilizada, Reembolsada }
+struct Entrada {
+    uint256 idEvento;  uint256 precioOriginal;
+    bytes32 compromisoIdentidad;   // keccak256(DNI, salt)
+    uint8 cantTransferencias;  EstadoEntrada estado;
+    uint64 fechaEmision;  uint64 fechaValidacion;  // 0 si no ingresó
+}</pre>
+<ul>
+  <li><b>No hay campo <code>titular</code>:</b> el titular es <code>ownerOf(tokenId)</code>, que ya mantiene ERC-721. Guardarlo dos veces podría desincronizarse.</li>
+  <li><b>Candado (<code>_update</code>):</b> OpenZeppelin 5 pasa <i>todas</i> las transferencias por la función interna <code>_update</code>. La sobrescribimos: si no es un mint y quien llama no tiene <code>OPERADOR_ROLE</code>, revierte con <code>TransferenciaDirectaBloqueada()</code>. <code>approve</code> y <code>setApprovalForAll</code> también revierten.</li>
+  <li><b><code>validarIngreso(tokenId, compromiso, timestamp, firmaTitular)</code>:</b> ver flujo 6.3.</li>
+  <li><b><code>estadoEfectivo(tokenId)</code>:</b> devuelve el estado "del DTE" combinando el de la entrada con el del evento (ver Sección 7).</li>
+  <li>En cada mint se configura la regalía del token: <code>_setTokenRoyalty(tokenId, artista, regaliaArtistaBps)</code>.</li>
+</ul>
+
+<h2>5.3 ReventaMarketplace.sol</h2>
+<pre>enum EstadoPublicacion { Activa, Vendida, Retirada }
+struct Publicacion { idPublicacion; idToken; vendedor; precioReventa; fechaPublicacion; estado; }</pre>
+<ul>
+  <li><b><code>publicarReventa(idToken, precio)</code>:</b> quien llama es el dueño, la entrada está <i>Asignada</i>, el evento Programado y antes de la fecha, <code>cantTransferencias &lt; maxTransferencias</code> y <code>precio ≤ precioOriginal × (10000 + topeReventaBps) / 10000</code>. El NFT pasa a custodia del Marketplace y la entrada a <i>En reventa</i>.</li>
+  <li><b><code>retirarPublicacion(id)</code>:</b> solo el vendedor; le devuelve el NFT y vuelve a <i>Asignada</i>. Funciona aunque el evento esté cancelado.</li>
+  <li><b><code>revenderEntrada(id, compromiso, firma)</code>:</b> ver flujo 6.2.</li>
+</ul>
+</div>
+
+<!-- ============================ 6. FLUJOS ============================ -->
+<div class="section">
+<h1>6. Los cinco flujos principales, paso a paso</h1>
+<p>Parámetros de ejemplo (los mismos de los tests y la demo): precio 0,1 ETH, tope +20 %, regalía 10 %, comisión 5 %, límite 2 por persona, máximo 2 transferencias.</p>
+
+<h2>6.1 Compra primaria</h2>
+<ol>
+  <li><b>Fuera de la cadena:</b> el comprador presenta su DNI al verificador (Tribuna Segura / KYC). Se calcula <code>compromiso = keccak256(abi.encode(DNI, salt))</code>. El DNI y el salt no salen de ahí.</li>
+  <li>El verificador firma con EIP-712 el mensaje <code>VerificarIdentidad(compromiso, comprador, idEvento)</code>. La firma está atada a esa billetera y a ese evento.</li>
+  <li>El comprador llama a <code>comprarEntrada(idEvento, compromiso, firma)</code> enviando 0,1 ETH.</li>
+  <li>El contrato verifica, en orden: evento existe y Programado → antes de la fecha → hay cupo → monto exacto → firma de un verificador → límite por persona.</li>
+  <li>Actualiza: <code>entradasPorPersona++</code>, <code>vendidas++</code>, <code>balanceCustodia += 0,1</code>.</li>
+  <li>Llama a <code>entradaNFT.mint(...)</code>: nace el token #1 en estado <i>Asignada</i> en la billetera del comprador, con su regalía configurada.</li>
+</ol>
+<div class="say">"El DNI nunca toca la blockchain. Lo que queda en la red es un compromiso que no se puede revertir, y la firma de una autoridad que dice: este compromiso corresponde a una persona real."</div>
+
+<h2>6.2 Reventa regulada y reparto del pago</h2>
+<ol>
+  <li>El titular publica a 0,115 ETH. Tope = 0,1 × 12.000 / 10.000 = <b>0,12 ETH</b> → se acepta. (A 0,15 ETH revierte con <code>PrecioSuperaTope</code>.)</li>
+  <li>El NFT pasa a la billetera del Marketplace (custodia) y la entrada queda <i>En reventa</i>.</li>
+  <li>El comprador secundario obtiene su propia firma de identidad y llama a <code>revenderEntrada</code> con 0,115 ETH.</li>
+  <li>El Marketplace pide a EventManager que registre la transferencia de identidad: si el comprador ya tiene 2 entradas del evento, revierte con <code>LimitePorPersonaExcedido</code>.</li>
+  <li>Calcula el reparto y lo acredita en <code>saldosPendientes</code> (no envía dinero directamente):</li>
+</ol>
+<table style="width:70%">
+  <tr><th>Destino</th><th>Cálculo</th><th>Monto</th></tr>
+  <tr><td>Artista (regalía ERC-2981)</td><td>0,115 × 1000 / 10000</td><td><b>0,0115 ETH</b></td></tr>
+  <tr><td>Plataforma (comisión)</td><td>0,115 × 500 / 10000</td><td><b>0,00575 ETH</b></td></tr>
+  <tr><td>Vendedor (neto)</td><td>0,115 − 0,0115 − 0,00575</td><td><b>0,09775 ETH</b></td></tr>
+</table>
+<ol start="6">
+  <li>Actualiza el compromiso de identidad de la entrada, suma 1 a <code>cantTransferencias</code>, la vuelve a <i>Asignada</i> y transfiere el NFT al comprador.</li>
+</ol>
+<div class="box info"><b class="t">Detalle para entender bien</b>
+El neto se calcula como "lo que sobra", no como 85 %. Así los centavos del redondeo de las divisiones quedan para el vendedor y nunca se pierde ni se crea dinero.</div>
+
+<h2>6.3 Ingreso con QR dinámico</h2>
+<ol>
+  <li>La app del titular firma (EIP-712) <code>ValidarAcceso(tokenId, timestamp)</code> con la hora actual y lo muestra como QR.</li>
+  <li>El lector (cuenta con <code>VALIDADOR_ROLE</code>) llama a <code>validarIngreso(tokenId, compromisoPresentado, timestamp, firma)</code>.</li>
+  <li>El contrato verifica: la entrada está <i>Asignada</i> → el evento está Programado → el compromiso coincide con el guardado (el personal controla el DNI físico fuera de la cadena) → el timestamp tiene como máximo 60 s de antigüedad (y no más de 5 s en el futuro) → la firma es de <code>ownerOf(tokenId)</code>.</li>
+  <li>Marca <i>Utilizada</i>, guarda <code>fechaValidacion</code> y emite <code>IngresoValidado</code>.</li>
+</ol>
+<div class="box warn"><b class="t">Dos defensas distintas, no confundirlas</b>
+<b>Captura de pantalla vieja</b> → la frena la ventana de 60 s (<code>QRExpirado</code>).<br>
+<b>Volver a entrar con la misma entrada</b> → lo frena el estado <i>Utilizada</i> (<code>EntradaNoValidaParaIngreso</code>).<br>
+En la demo se muestra la segunda. Si alguien reenvía un QR válido dentro de los 60 s, el que llega primero entra y el segundo es rechazado por estado.</div>
+
+<h2>6.4 Cancelación y reembolso</h2>
+<ol>
+  <li>El oráculo llama a <code>cancelarEvento(id)</code> antes de la fecha. Solo cambia el estado del evento: no toca ninguna entrada.</li>
+  <li>Cada titular llama a <code>reclamarReembolso(tokenId)</code>. Se le acredita el <b>precio original</b> y la entrada pasa a <i>Reembolsada</i>.</li>
+  <li>Si la entrada estaba publicada, la reclama el vendedor, la publicación se cierra y el NFT reembolsado se transfiere de vuelta a la billetera del vendedor.</li>
+  <li>Luego retira con <code>retirarFondos()</code>.</li>
+</ol>
+<div class="box info"><b class="t">¿Por qué el precio original y no lo que pagó en la reventa?</b>
+En custodia solo está el precio de la venta primaria. Lo pagado en la reventa ya se repartió en ese momento entre vendedor, artista y plataforma. Es una limitación de diseño que conviene reconocer: quien compró en reventa a 0,115 recupera 0,1.</div>
+
+<h2>6.5 Cierre del evento y liquidación</h2>
+<ol>
+  <li>Pasado <code>fechaHora + 24 h</code>, el oráculo llama a <code>cerrarEvento(id)</code> (antes, revierte con <code>FueraDeTermino</code>).</li>
+  <li>El evento pasa a <i>Finalizado</i> y toda la custodia se acredita al organizador.</li>
+  <li>Las entradas no usadas pasan a verse como <i>Vencida</i> en <code>estadoEfectivo</code>, sin escribir nada en cada una.</li>
+  <li>Organizador, artista, plataforma y vendedores retiran con <code>retirarFondos()</code>.</li>
+</ol>
+</div>
+
+<!-- ============================ 7. DTE ============================ -->
+<div class="section">
+<h1>7. Estados de la entrada (DTE)</h1>
+<p>El DTE de la Actividad 4 (Figura 2) tiene seis estados. En el código, cuatro se <b>guardan</b> en la entrada y dos son <b>lógicos</b> (se calculan al consultar).</p>
+
+<div class="flow">
+  <span class="st logic">Emitida</span><span class="arr">— comprarEntrada →</span>
+  <span class="st">Asignada</span><span class="arr">⇄ publicarReventa / retirarPublicacion, revenderEntrada ⇄</span>
+  <span class="st">En reventa</span>
+</div>
+<div class="flow">
+  <span class="st">Asignada</span><span class="arr">— validarIngreso →</span><span class="st final">Utilizada</span>
+  <span class="arr">&nbsp;|&nbsp;</span>
+  <span class="st">Asignada / En reventa</span><span class="arr">— cancelarEvento + reclamarReembolso →</span><span class="st final">Reembolsada</span>
+</div>
+<div class="flow">
+  <span class="st">Asignada</span><span class="arr">— cerrarEvento (sin ingreso) →</span><span class="st final logic">Vencida</span>
+  <span class="arr">&nbsp;|&nbsp;</span>
+  <span class="st logic">Emitida (cupo no vendido)</span><span class="arr">— cerrar / cancelar →</span><span class="arr">nunca se acuña</span>
+</div>
+<p class="small">Borde punteado = estado lógico. Doble borde = estado final.</p>
+
+<table>
+  <tr><th>Estado</th><th>Significado</th><th>Cómo se implementa</th><th>¿Final?</th></tr>
+  <tr><td><b>Emitida</b></td><td>Cupo disponible a la venta</td><td>Lógico: <code>vendidas &lt; capacidad</code>. El token todavía no existe.</td><td>No</td></tr>
+  <tr><td><b>Asignada</b></td><td>Tiene titular</td><td>Guardado</td><td>No</td></tr>
+  <tr><td><b>En reventa</b></td><td>Publicada, en custodia del Marketplace</td><td>Guardado</td><td>No</td></tr>
+  <tr><td><b>Utilizada</b></td><td>El titular ingresó</td><td>Guardado</td><td>Sí</td></tr>
+  <tr><td><b>Reembolsada</b></td><td>Evento cancelado y dinero devuelto</td><td>Guardado</td><td>Sí</td></tr>
+  <tr><td><b>Vencida</b></td><td>El evento terminó y no se usó</td><td>Lógico: evento <i>Finalizado</i> y entrada no usada</td><td>Sí</td></tr>
+</table>
+
+<h2>¿Por qué estados lógicos?</h2>
+<p>Para pasar 50.000 entradas a <i>Vencida</i> habría que recorrerlas en un bucle dentro de una sola transacción. Eso supera el límite de gas por bloque: la transacción fallaría siempre y el evento no se podría cerrar nunca (un DoS que el propio contrato se hace). Calcular el estado al consultarlo cuesta cero gas y da el mismo resultado.</p>
+<div class="say">"No guardamos lo que se puede deducir. Una entrada de un evento finalizado que no se usó está vencida; no hace falta escribirlo 50.000 veces."</div>
+<div class="box info"><b class="t">Una diferencia con la Actividad 4</b>
+La Tabla 8 decía que, antes del evento, las publicaciones activas "se retiran solas". Un contrato no puede ejecutar nada por su cuenta, sin que alguien lo llame. En el código, pasada la fecha ya no se puede comprar en reventa, pero el NFT queda en el Marketplace hasta que el vendedor lo retire.</div>
+</div>
+
+<!-- ============================ 8. MODELO VS CÓDIGO ============================ -->
+<div class="section">
+<h1>8. Qué cambió entre el modelo y el código, y por qué</h1>
+<p>Esta es la sección más importante para defender el trabajo. Cada cambio tiene un motivo técnico concreto.</p>
+<table>
+  <tr><th style="width:24%">Actividad 4 (modelo)</th><th style="width:28%">Implementación</th><th>Motivo</th></tr>
+  <tr><td><code>emitirEntrada</code>: el organizador acuña todos los NFT hasta la capacidad (y la Tabla 11 propone "acuñación por lotes").</td><td>No existe <code>emitirEntrada</code>. <b>Lazy mint</b>: el NFT se acuña al comprar.</td><td>Acuñar 50.000 tokens por adelantado cuesta mucho gas y obliga a hacerlo en muchas transacciones. Con lazy mint, cada comprador paga el gas de su entrada.</td></tr>
+  <tr><td><code>cancelarEvento</code> "reembolsa a cada titular".</td><td>Solo cambia el estado; cada titular llama a <code>reclamarReembolso</code> (patrón pull).</td><td>Reembolsar a todos en un bucle supera el gas. Además, si un receptor rechaza el pago, el bucle completo fallaría.</td></tr>
+  <tr><td>Cancela "el organizador vía oráculo".</td><td>Solo <code>ORACULO_ROLE</code>, que es distinto del organizador.</td><td>Que el organizador no controle la liberación del escrow.</td></tr>
+  <tr><td><code>hashIdentidad</code> = hash del DNI.</td><td><code>compromisoIdentidad</code> = <code>keccak256(DNI, salt)</code> + firma EIP-712 de un verificador.</td><td>Un hash solo del DNI se revierte probando los ~10<sup>8</sup> DNI posibles. Además, sin firma cualquiera podría inventar un hash.</td></tr>
+  <tr><td>Estado del evento con <i>En curso</i>.</td><td>Eliminado: Programado, Finalizado, Cancelado.</td><td>Ninguna transacción lo activaba y no cambiaba ninguna regla.</td></tr>
+  <tr><td>Estados <i>Emitida</i> y <i>Vencida</i> guardados.</td><td>Estados lógicos (<code>estadoEfectivo</code>).</td><td>Evitar bucles (ver Sección 7).</td></tr>
+  <tr><td>Campo <code>titular</code> en la entrada.</td><td>Se usa <code>ownerOf(tokenId)</code>.</td><td>No duplicar datos que ERC-721 ya mantiene.</td></tr>
+  <tr><td><code>sector</code>, <code>ubicacion</code>, <code>sectores[]</code> con precios.</td><td><b>No implementado.</b> Un solo <code>precioBase</code> por evento.</td><td>Simplificación del alcance. El plan preveía llevarlos a la metadata del token (IPFS), pero eso no se programó.</td></tr>
+  <tr><td>Comisión de la plataforma en la publicación.</td><td><code>comisionPlataformaBps</code> por evento.</td><td>Una regla del evento, igual para todas las reventas.</td></tr>
+  <tr><td>Precios en pesos con pasarela de pago.</td><td>Moneda nativa de la red (ETH en Hardhat; sería POL en Polygon).</td><td>La pasarela queda fuera del alcance de la implementación.</td></tr>
+  <tr><td>Tope de reventa como porcentaje (20).</td><td>Basis points (2000).</td><td>Precisión sin decimales.</td></tr>
+  <tr><td>Límite de transferencias (mencionado en el DTE).</td><td><code>maxTransferencias</code> por evento.</td><td>Regla que faltaba en los atributos.</td></tr>
+  <tr><td>QR dinámico (Glosario y Tabla 9).</td><td>Firma EIP-712 del titular sobre <code>(tokenId, timestamp)</code>, ventana de 60 s.</td><td>Es la forma concreta de que "una captura vieja no sirva".</td></tr>
+</table>
+
+<h3>Cosas del modelo que quedaron fuera del código</h3>
+<ul>
+  <li>Validación del QR <b>sin conexión</b> en el estadio (Tabla 11): en el código la validación es una transacción en la red.</li>
+  <li>Oráculo con <b>varias fuentes y firma conjunta</b> del organizador (Tabla 11): en el código es una sola cuenta con rol.</li>
+  <li><code>requiereAdmision</code> (Tribuna Segura en el fútbol): se guarda en el evento pero <b>ninguna función lo usa todavía</b>. Hoy todas las compras exigen firma del verificador, sea o no fútbol.</li>
+</ul>
+</div>
+
+<!-- ============================ 9. SEGURIDAD ============================ -->
+<div class="section">
+<h1>9. Seguridad: cada ataque y su defensa</h1>
+<table>
+  <tr><th style="width:24%">Ataque / riesgo</th><th>Defensa en el código</th><th style="width:14%">Prueba</th></tr>
+  <tr><td>Revender por fuera con <code>transferFrom</code></td><td>Hook <code>_update</code> revierte si quien llama no es operador.</td><td>CP-14</td></tr>
+  <tr><td>Autorizar a un tercero para que transfiera</td><td><code>approve</code> y <code>setApprovalForAll</code> siempre revierten.</td><td>CP-15</td></tr>
+  <tr><td>Revender con sobreprecio</td><td>Tope calculado en <code>publicarReventa</code>.</td><td>CP-08</td></tr>
+  <tr><td>Revender infinitas veces</td><td><code>maxTransferencias</code>.</td><td>CP-12</td></tr>
+  <tr><td>Acaparar entradas (bots)</td><td>Límite por compromiso de identidad, en venta primaria y en reventa.</td><td>CP-03, CP-11</td></tr>
+  <tr><td>Inventar una identidad</td><td>El compromiso debe venir firmado por <code>VERIFICADOR_ROLE</code>.</td><td>CP-06</td></tr>
+  <tr><td>Descubrir el DNI desde el hash</td><td>Salt secreto en el compromiso.</td><td>—</td></tr>
+  <tr><td>Captura de QR</td><td>Ventana de 60 s + firma del dueño actual.</td><td>CP-19</td></tr>
+  <tr><td>Entrar dos veces</td><td>Estado <i>Utilizada</i>.</td><td>CP-18</td></tr>
+  <tr><td>Validar sin ser personal autorizado</td><td><code>onlyRole(VALIDADOR_ROLE)</code>.</td><td>CP-16</td></tr>
+  <tr><td>Organizador cobra sin hacer el evento</td><td>Solo el oráculo cierra, y no antes de fecha + 24 h.</td><td>CP-20, CP-24</td></tr>
+  <tr><td>Reembolsarse dos veces</td><td>Estado <i>Reembolsada</i>.</td><td>CP-22</td></tr>
+  <tr><td>Reentrancia en el retiro</td><td><code>nonReentrant</code> + saldo en 0 antes de enviar (CEI).</td><td>CP-27</td></tr>
+  <tr><td>Un receptor que rechaza pagos bloquea la venta</td><td>Patrón pull: en la venta solo se anotan saldos; cada uno retira después.</td><td>—</td></tr>
+  <tr><td>Firma reutilizada en otro contrato o red</td><td>Dominio EIP-712 (nombre, versión, chainId, dirección del contrato).</td><td>—</td></tr>
+</table>
+
+<h2>9.1 Cómo funciona el ataque de reentrancia (CP-27)</h2>
+<p>El contrato <code>Atacante.sol</code> tiene saldo para retirar. Llama a <code>retirarFondos()</code>; cuando recibe el ETH, su función <code>receive()</code> vuelve a llamar a <code>retirarFondos()</code> para cobrar otra vez.</p>
+<ul>
+  <li>El modificador <code>nonReentrant</code> detecta que la función ya se está ejecutando y revierte la segunda llamada.</li>
+  <li>Esa reversión hace fallar el <code>receive()</code> del atacante, así que el envío original falla y <code>retirarFondos()</code> revierte con <code>TransferenciaFallida</code>.</li>
+  <li>Como toda la transacción revierte, el saldo del atacante sigue intacto en el contrato: no cobró nada de más.</li>
+</ul>
+<p>Aunque no existiera <code>nonReentrant</code>, CEI también lo frena: el saldo ya está en 0 cuando se envía el dinero, y la segunda llamada encontraría <code>SinSaldo</code>.</p>
+</div>
+
+<!-- ============================ 10. PRUEBAS ============================ -->
+<div class="section">
+<h1>10. Pruebas automatizadas y cobertura</h1>
+<p>34 pruebas automatizadas en Mocha/Chai con Hardhat: los 27 casos del plan (CP-01 a CP-27) más 7 suites de validaciones negativas y bordes. Todas pasan. Cada test arranca desde un despliegue limpio (<code>loadFixture</code>) y verifica el error exacto con <code>revertedWithCustomError</code>.</p>
+
+<table>
+  <tr><th>Archivo</th><th>Casos</th><th>Qué prueba</th></tr>
+  <tr><td><code>01_CreacionYCompra.test.js</code></td><td>CP-01 a 06</td><td>Crear evento; comprar; límite por persona; capacidad agotada; monto incorrecto; firma de verificador falsa.</td></tr>
+  <tr><td><code>02_Reventa.test.js</code></td><td>CP-07 a 13</td><td>Publicar; exceso de tope; retirar; revender con reparto; límite por persona en reventa; máximo de transferencias; pago incorrecto.</td></tr>
+  <tr><td><code>03_CandadoP2P.test.js</code></td><td>CP-14, 15</td><td><code>transferFrom</code>, <code>approve</code> y <code>setApprovalForAll</code> bloqueados.</td></tr>
+  <tr><td><code>04_ControlAcceso.test.js</code></td><td>CP-16 a 19</td><td>Validar sin rol; ingreso correcto; reingreso; QR viejo y firma de otra cuenta.</td></tr>
+  <tr><td><code>05_CicloFinal.test.js</code></td><td>CP-20 a 27</td><td>Cierre sin rol; cancelación y reembolso; doble reembolso; reembolso de entrada publicada; cierre anticipado; cierre y vencimiento; retiros; reentrancia.</td></tr>
+  <tr><td><code>06_ValidacionesYCobertura.test.js</code></td><td>7 suites</td><td>Validaciones de constructores, tokens/eventos inexistentes, plazos vencidos, permisos de operador y reentrancia vía <code>onERC721Received</code>.</td></tr>
+</table>
+
+<h3>Herramientas de Hardhat que usan los tests</h3>
+<ul>
+  <li><code>time.increaseTo(...)</code>: adelanta el reloj de la red local para probar el cierre después del evento (CP-25, CP-26).</li>
+  <li><code>changeEtherBalances</code>: verifica cuánto ETH ganó o perdió cada cuenta en una transacción (CP-26).</li>
+  <li><code>signTypedData</code> (ethers): genera firmas EIP-712 como lo harían el verificador o la app del titular (<code>scripts/utils.js</code>).</li>
+</ul>
+
+<h2>10.1 Cobertura (<code>npx hardhat coverage</code>)</h2>
+<table style="width:85%">
+  <tr><th>Archivo</th><th>Sentencias</th><th>Ramas</th><th>Funciones</th><th>Líneas</th></tr>
+  <tr><td>EntradaNFT.sol</td><td>100 %</td><td>100 %</td><td>100 %</td><td>100 %</td></tr>
+  <tr><td>EventManager.sol</td><td>100 %</td><td>100 %</td><td>100 %</td><td>100 %</td></tr>
+  <tr><td>ReventaMarketplace.sol</td><td>100 %</td><td>95,24 %</td><td>100 %</td><td>100 %</td></tr>
+  <tr><td><b>Total (incl. Atacante.sol)</b></td><td><b>99,41 %</b></td><td><b>98,91 %</b></td><td><b>100 %</b></td><td><b>99,53 %</b></td></tr>
+</table>
+<div class="box ok"><b class="t">Cobertura superior al 98 % en todas las métricas</b>
+En los tres contratos de negocio (<code>EntradaNFT</code>, <code>EventManager</code> y <code>ReventaMarketplace</code>) la cobertura es del <b>100 % de sentencias, funciones y líneas</b> y del <b>98,9 % de ramas</b>. Tanto los caminos felices como las validaciones negativas están verificados.</div>
+</div>
+
+<!-- ============================ 11. DEMO ============================ -->
+<div class="section">
+<h1>11. La demo en vivo, explicada</h1>
+<p>Comandos: <code>npm run demo</code> (demo rápida en red en memoria) o <code>npm run demo:local</code> / <code>npm run demo:amoy</code> (demo completa sobre nodo local persistente o Polygon Amoy, incluyendo cancelación con estado <i>Reembolsada</i> y cierre con estado <i>Vencida</i>). En ambos casos, <code>scripts/errores.js</code> decodifica con el ABI el error real devuelto por el contrato.</p>
+<table>
+  <tr><th style="width:5%">#</th><th style="width:30%">Etapa en pantalla</th><th>Qué está pasando y qué decir</th></tr>
+  <tr><td>1</td><td>Despliegue y roles</td><td>Se despliegan los 3 contratos en el orden de la Sección 4.2 y se dan los roles.</td></tr>
+  <tr><td>2</td><td>Creación del evento</td><td>Evento 101, capacidad 50.000, tope +20 %, regalía 10 %, comisión 5 %, límite 2 por DNI.</td></tr>
+  <tr><td>3</td><td>Compra primaria y consulta</td><td>Se muestra el compromiso (no el DNI). El verificador firma. Se acuña la entrada #1, quedan 0,1 ETH en custodia y se consultan en cadena sus datos y estado (<code>obtenerEntrada</code>, <code>ownerOf</code>, <code>estadoEfectivo</code> = <i>Asignada</i>).</td></tr>
+  <tr><td>4</td><td>Intento de transferencia P2P</td><td><code>transferFrom</code> revierte con <code>TransferenciaDirectaBloqueada</code>. "No hay mercado negro posible por fuera del contrato".</td></tr>
+  <tr><td>5</td><td>Intento de sobreprecio</td><td>Publicar a 0,15 ETH revierte con <code>PrecioSuperaTope</code>.</td></tr>
+  <tr><td>6</td><td>Reventa legal y reparto</td><td>Publica a 0,115 (<i>En reventa</i>), compra el comprador 2. Se consultan en cadena el nuevo titular y estado (<i>Asignada</i>), y se muestran 0,0115 / 0,00575 / 0,09775 ETH.</td></tr>
+  <tr><td>7</td><td>Permisos, ingreso con QR y anti-replay</td><td>Primero se rechaza el intento de validar sin <code>VALIDADOR_ROLE</code> (<code>AccessControlUnauthorizedAccount</code>). Luego el comprador 2 firma el QR, el validador autorizado lo acepta (<i>Utilizada</i>) y el segundo intento es rechazado por estado (<code>EntradaNoValidaParaIngreso</code>).</td></tr>
+  <tr><td>8</td><td>Gobernanza, Cancelación y Cierre</td><td>En <code>demo.js</code> se rechaza el intento del organizador de cerrar sin <code>ORACULO_ROLE</code> y el artista retira su regalía; en <code>demo-red.js</code> además se demuestran los estados finales <i>Reembolsada</i> (cancelación y reembolso) y <i>Vencida</i> (cierre tras adelantar el reloj 8 días en nodo local).</td></tr>
+</table>
+<div class="box ok"><b class="t">Los 5 requisitos obligatorios del aula virtual para la ejecución en vivo</b>
+La consigna exige demostrar en clase: <b>(1)</b> creación/registro del activo (Etapas 2 y 3), <b>(2)</b> recorrido válido por los estados (Etapas 2, 3, 6, 7 y 8), <b>(3)</b> consulta de datos y estado del activo (Etapas 3, 6, 7 y 8), <b>(4)</b> rechazo de una transición u operación inválida (Etapas 4, 5, 7 y 8) y <b>(5)</b> rechazo de una operación sin los permisos necesarios (Etapas 7 y 8). En cada paso recuerden mencionar: <i>qué operación se ejecuta, qué resultado se espera y cómo se verifica en consola</i>.</div>
+<div class="box info"><b class="t">Lo que cubren adicionalmente los tests</b>
+El QR expirado y el ataque de reentrancia con contrato malicioso. Si preguntan, se puede correr <code>npm test</code> y señalar CP-19 y CP-27.</div>
+<div class="box warn"><b class="t">Antes de presentar</b>
+<ul style="margin:0">
+<li>Correr <code>npm install</code>, <code>npm test</code> y <code>npm run demo</code> en la computadora de la presentación el día anterior.</li>
+<li>En la red local los mensajes dicen "ETH" y en Amoy dicen "POL".</li>
+<li>Agrandar la fuente de la terminal. La demo imprime todo de una vez; conviene ir explicando sobre la salida ya impresa o hacer scroll.</li>
+</ul></div>
+
+<h2>11.1 Sobre el guion de 7 minutos</h2>
+<p>La consigna fija formato charla TED, <b>máximo 7 minutos</b>. En <code>docs/GUIA_PRESENTACION_DEMO.md</code> hay una propuesta de reparto por bloques entre los cuatro integrantes. La asignación de temas a cada persona es solo una sugerencia: ajústenla entre ustedes.</p>
+</div>
+
+<!-- ============================ 12. LIMITACIONES ============================ -->
+<div class="section">
+<h1>12. Limitaciones reales del código</h1>
+<p>Mejor decirlas uno mismo que que las descubra el jurado. Para cada una: qué pasa y cómo se resolvería.</p>
+
+<div class="box crit"><b class="t">1. El límite por persona depende de que el compromiso sea siempre el mismo</b>
+El límite cuenta entradas por <i>compromiso</i>, no por DNI. Si la misma persona obtiene dos compromisos con salts distintos (y el verificador firma los dos), tiene dos cupos. En los tests el salt se genera al azar en cada caso.<br>
+<b>Solución:</b> que el verificador asigne un único salt por DNI (o por DNI y evento) y nunca firme un segundo compromiso para la misma persona. La regla depende del verificador, que es un actor de confianza.</div>
+
+<div class="box warn"><b class="t">2. Quien compra en reventa recupera menos si se cancela</b>
+Se reembolsa el precio original (lo que hay en custodia), no lo que pagó en la reventa.</div>
+
+<div class="box warn"><b class="t">3. Funcionalidad del modelo no implementada</b>
+Sectores y ubicaciones; metadata del token (<code>tokenURI</code>); uso de <code>requiereAdmision</code>; validación sin conexión; oráculo con varias fuentes; pagos en pesos.</div>
+
+<div class="box warn"><b class="t">4. Venta de la billetera completa</b>
+El candado no impide vender la clave privada. Lo mitiga el control del DNI en la puerta (el compromiso tiene que coincidir). Ya figuraba como desafío en la Actividad 4.</div>
+
+<div class="box warn"><b class="t">5. Centralización en roles</b>
+El administrador, el oráculo y el verificador son cuentas de confianza (en la red de prueba Amoy los opera una única billetera). En producción: cuentas separadas por entidad, multisig con timelock para el administrador y una red de oráculos.</div>
+
+<div class="box warn"><b class="t">6. "Tope 0 %" no prohíbe la reventa</b>
+La Actividad 4 dice que, si una jurisdicción prohíbe la reventa, el organizador fija el tope en 0 %. En el código, tope 0 permite revender <i>al precio original</i>. Para prohibirla del todo hay que poner <code>maxTransferencias = 0</code>.</div>
+
+<div class="box warn"><b class="t">7. Configuración del compilador</b>
+Se usó <code>evmVersion: "cancun"</code> (OpenZeppelin 5 usa la instrucción <code>mcopy</code>) y <code>viaIR: true</code> (el struct del evento tiene muchos campos y el compilador clásico daba "stack too deep"). Funciona en Hardhat y en Polygon Amoy.</div>
+
+<div class="box info"><b class="t">Detalles menores</b>
+<code>obtenerEstadoEvento</code> de un evento inexistente devuelve <i>Programado</i> (valor por defecto del enum). La validación acepta timestamps hasta 5 s en el futuro por diferencias de reloj. Ninguno de los dos afecta los flujos normales.</div>
+</div>
+
+<!-- ============================ 13. PREGUNTAS ============================ -->
+<div class="section">
+<h1>13. Preguntas probables del jurado</h1>
+
+<div class="q">¿Por qué blockchain y no una base de datos de la ticketera?</div>
+<div class="a">Porque hay muchos actores que no confían entre sí y comparten el mismo activo. Con una base central todos dependen de esa empresa. En una red pública cualquiera verifica el titular, las reglas se ejecutan solas y el historial no se puede alterar.</div>
+
+<div class="q">¿Qué impide que revenda la entrada por Mercado Libre y la transfiera?</div>
+<div class="a">La transferencia directa revierte (hook <code>_update</code>). La única forma de cambiar el titular es el Marketplace, que aplica tope, límite y regalía. Lo único posible es vender la billetera entera, y eso lo frena el control del DNI en la puerta.</div>
+
+<div class="q">ERC-2981 no obliga a pagar regalías. ¿Cómo garantizan que se paguen?</div>
+<div class="a">Justamente por eso hay candado: si la única vía de transferencia es nuestro Marketplace, y el Marketplace paga la regalía en cada venta, la regalía se paga siempre.</div>
+
+<div class="q">¿El DNI queda en la blockchain? ¿Cumple la Ley 25.326?</div>
+<div class="a">No queda. Queda <code>keccak256(DNI, salt)</code> con un salt secreto, que no se puede revertir. Es seudonimización: el vínculo persona-billetera existe, pero fuera de la cadena, en el verificador. Lo presentamos así, no como anonimato.</div>
+
+<div class="q">¿Por qué no se acuñan las entradas cuando se crea el evento, como en el modelo?</div>
+<div class="a">Por gas. Acuñar decenas de miles de tokens por adelantado es carísimo. Con lazy mint, la entrada nace cuando alguien la compra y paga su propio gas. El estado <i>Emitida</i> pasa a ser el cupo disponible.</div>
+
+<div class="q">Si el evento se cancela, ¿cómo se devuelve la plata a 50.000 personas?</div>
+<div class="a">El oráculo solo marca el evento como cancelado. Cada titular reclama su reembolso. Un bucle de 50.000 pagos no entra en un bloque, y si un solo pago fallara, fallaría todo.</div>
+
+<div class="q">¿Qué pasa si el oráculo miente?</div>
+<div class="a">Es un punto de confianza, declarado en las limitaciones. Por eso está separado del organizador y tiene restricciones de tiempo (no puede cerrar antes de fecha + 24 h, no puede cancelar después de la fecha). En producción sería una red de oráculos o una multisig.</div>
+
+<div class="q">¿Cómo evitan que alguien compre 100 entradas con 100 billeteras?</div>
+<div class="a">El límite no es por billetera sino por identidad verificada. Cada compra necesita una firma del verificador sobre el compromiso. <i>Matiz:</i> esto funciona si el verificador emite un solo compromiso por DNI (ver limitación 1).</div>
+
+<div class="q">¿Qué es el QR dinámico, técnicamente?</div>
+<div class="a">Una firma EIP-712 de la billetera del titular sobre (número de entrada, hora). El contrato verifica que la firma sea del dueño actual y que tenga menos de 60 segundos. Una captura vieja vence.</div>
+
+<div class="q">¿Cómo se protegen contra reentrancia?</div>
+<div class="a">Con dos capas: <code>nonReentrant</code> de OpenZeppelin y el patrón CEI (el saldo se pone en cero antes de enviar el dinero). Lo probamos con un contrato atacante (CP-27).</div>
+
+<div class="q">¿Por qué Polygon y no Ethereum?</div>
+<div class="a">Compatible con la EVM (mismas herramientas y estándares), mucho más barata y rápida, y ya usada en ticketing real (Ticketmaster, OPEN Ticketing). En Ethereum mainnet el gas de miles de entradas es inviable.</div>
+
+<div class="q">¿Cómo saben que funciona?</div>
+<div class="a">34 pruebas automatizadas (los 27 casos del plan más 7 suites de validaciones de borde) que cubren casos felices, reglas de negocio, permisos y ataques. En los contratos de negocio la cobertura es 100 % de sentencias, funciones y líneas, y 98,9 % de ramas.</div>
+
+<div class="q">¿Usaron IA?</div>
+<div class="a">Sí, declarado en la Actividad 4 (Claude) y en el plan de implementación. La IA asistió en el diseño, el código, los tests y la documentación. Las decisiones de diseño son del equipo y el código tiene que estar entendido por todos: para eso es esta guía.</div>
+</div>
+
+<!-- ============================ 14. REPASO ============================ -->
+<div class="section">
+<h1>14. Hoja de repaso rápido</h1>
+<div class="two">
+<div>
+<h3>Números clave</h3>
+<ul>
+  <li>3 contratos · 7 roles · 34 tests (27 CP + 7 suites)</li>
+  <li>Tope: +20 % = 2000 bps</li>
+  <li>Regalía 10 % · comisión 5 %</li>
+  <li>Ejemplo: 0,115 → 0,0115 / 0,00575 / 0,09775</li>
+  <li>QR válido 60 s</li>
+  <li>Cierre: fecha + 24 h</li>
+  <li>Límite 2 por persona · máx. 2 transferencias</li>
+  <li>Solidity 0.8.24 · OpenZeppelin 5</li>
+  <li>Demo Day: 16/11/2026 · 7 minutos</li>
+</ul>
+<h3>Cinco ideas de ingeniería</h3>
+<ol>
+  <li>Lazy mint</li>
+  <li>Estados lógicos (sin bucles)</li>
+  <li>Patrón pull + CEI</li>
+  <li>Candado <code>_update</code></li>
+  <li>Compromiso con salt + EIP-712</li>
+</ol>
+</div>
+<div>
+<h3>Errores que conviene reconocer</h3>
+<table>
+  <tr><th>Error</th><th>Cuándo</th></tr>
+  <tr><td><code>LimitePorPersonaExcedido</code></td><td>Más del cupo por identidad</td></tr>
+  <tr><td><code>CapacidadAgotada</code></td><td>Sin cupo</td></tr>
+  <tr><td><code>MontoIncorrecto</code></td><td>Pago distinto del precio</td></tr>
+  <tr><td><code>FirmaInvalida</code></td><td>Firma de quien no corresponde</td></tr>
+  <tr><td><code>PrecioSuperaTope</code></td><td>Reventa sobre el tope</td></tr>
+  <tr><td><code>MaxTransferenciasAlcanzado</code></td><td>Demasiadas reventas</td></tr>
+  <tr><td><code>TransferenciaDirectaBloqueada</code></td><td>P2P o approve</td></tr>
+  <tr><td><code>EntradaNoValidaParaIngreso</code></td><td>Ya usada / no asignada</td></tr>
+  <tr><td><code>QRExpirado</code></td><td>QR de más de 60 s</td></tr>
+  <tr><td><code>FueraDeTermino</code></td><td>Fuera de la ventana de tiempo</td></tr>
+  <tr><td><code>YaReembolsada</code></td><td>Doble reembolso</td></tr>
+  <tr><td><code>SinSaldo</code></td><td>Retiro sin saldo</td></tr>
+</table>
+</div>
+</div>
+
+<h3>Comandos (dentro de <code>e-ticket-evento/</code>)</h3>
+<pre>npm install          # instalar dependencias
+npm run compile      # compilar contratos
+npm test             # 34 pruebas (27 CP + 7 suites)
+npm run coverage     # cobertura
+npm run demo         # demo rápida en memoria
+npm run nodo         # nodo local persistente (Terminal 1)
+npm run deploy:local # desplegar en nodo local (Terminal 2)
+npm run demo:local   # demo completa en nodo local (incluye Reembolsada y Vencida)
+npm run deploy:amoy  # desplegar en Polygon Amoy (Testnet pública)
+npm run demo:amoy    # demo en Polygon Amoy</pre>
+
+<div class="say">Cierre sugerido: "e-TicketEvento no saca a la ticketera del negocio: le cambia el rol. Las reglas que hoy dependen de operativos y buena voluntad pasan a estar escritas en el activo, verificables por cualquiera."</div>
+</div>
+
+</body>
+</html>

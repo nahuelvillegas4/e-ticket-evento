@@ -1,0 +1,79 @@
+{
+  "red": "amoy",
+  "chainId": 80002,
+  "fecha": "2026-11-12T21:06:22.405Z",
+  "admin": "0x3E07eaf43fC8202A3FA9e3c73A2245a1a0fE70ED",
+  "roles": {
+    "organizador": "0x3E07eaf43fC8202A3FA9e3c73A2245a1a0fE70ED",
+    "oraculo": "0x3E07eaf43fC8202A3FA9e3c73A2245a1a0fE70ED",
+    "verificador": "0x3E07eaf43fC8202A3FA9e3c73A2245a1a0fE70ED",
+    "validador": "0x3E07eaf43fC8202A3FA9e3c73A2245a1a0fE70ED"
+  },
+  "contratos": {
+    "EntradaNFT": "0x091e9EEb34181D89d5C3F3171D31036B688909cb",
+    "EventManager": "0x321375bd30Fd031E9F44EF6eCCC6aB23bb32B09a",
+    "ReventaMarketplace": "0x0423B4398a5d3Cc2CAfeb38Ada5039813afaaC75"
+  },
+  "transacciones": [
+    {
+      "descripcion": "deploy EntradaNFT",
+      "hash": "0xc2009021687b3cab0cc23b9e33287c0a3e6c58cebc4aa5ae7ae9b482749bb73c",
+      "gasUsed": "2158369"
+    },
+    {
+      "descripcion": "deploy EventManager",
+      "hash": "0x1a920d63e30309fbadd74eb9e14fad5d29d94a6f6bd198cc8ba0e4b5c3443ae4",
+      "gasUsed": "2396286"
+    },
+    {
+      "descripcion": "deploy ReventaMarketplace",
+      "hash": "0x238caa393cf2ae11eb9b4e64527cd02b2faecdb28a6931674b7e42052f23e71a",
+      "gasUsed": "1554685"
+    },
+    {
+      "descripcion": "EntradaNFT.setEventManager",
+      "hash": "0xf21b382680c60023c7b52322e991011c39f4f2743973f638476210574386f99e",
+      "gasUsed": "53058"
+    },
+    {
+      "descripcion": "EventManager.setMarketplace",
+      "hash": "0xb1437b0f3467dcbf725b1f26b3a66017ad7678a2b9fa7f69d529fd03b34136a8",
+      "gasUsed": "53045"
+    },
+    {
+      "descripcion": "OPERADOR_ROLE -> EventManager",
+      "hash": "0xf765bde246370b899dae32be0c05d8daf4232916dd6bbc7a409e82b1398de758",
+      "gasUsed": "61305"
+    },
+    {
+      "descripcion": "OPERADOR_ROLE -> Marketplace",
+      "hash": "0xd47081611d1c3c0773c9385ce3036eb19ea5d1c997455ba8108d5058f62878e6",
+      "gasUsed": "61305"
+    },
+    {
+      "descripcion": "VALIDADOR_ROLE",
+      "hash": "0x2a95a69778ef27e0b37efc54a038a1a191ab6ba2a40edbdbfc5ff92ca5fffa94",
+      "gasUsed": "61305"
+    },
+    {
+      "descripcion": "MARKETPLACE_ROLE -> Marketplace",
+      "hash": "0x4091ad55c27dd962c7306831693c80b458cfe6224d4367e13423dab0a5686fdd",
+      "gasUsed": "61254"
+    },
+    {
+      "descripcion": "ORGANIZADOR_ROLE",
+      "hash": "0xdc67b80989668bf6f4ebac26a238b18ca8d9d3bb3779dede27d4fab766fd0983",
+      "gasUsed": "61254"
+    },
+    {
+      "descripcion": "ORACULO_ROLE",
+      "hash": "0xd0482ee477aa13df71d0b030067c9155696cdee0cbaa9188e897e22fec682a3d",
+      "gasUsed": "61254"
+    },
+    {
+      "descripcion": "VERIFICADOR_ROLE",
+      "hash": "0x84411572beccfd184d6f485d9d812a51ebee20d2aaf7451c8be15e7514b67571",
+      "gasUsed": "61242"
+    }
+  ]
+}
