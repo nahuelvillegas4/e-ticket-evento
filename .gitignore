@@ -5,5 +5,4 @@ coverage/
 coverage.json
 .env
 deployments/localhost.json
-deployments/interfaz-localhost.json
-deployments/interfaz-hardhat.json
+deployments/interfaz-*.json

@@ -110,11 +110,19 @@ function vistaBilletera() {
     </div>
     <div class="card"><h3 style="margin-bottom:6px">Permisos en los contratos</h3><div class="rules">${roles}</div></div>
   </div>
+  ${desplieguePanel()}
   <div class="card list" style="gap:8px"><h3>Contratos</h3><div class="kv small">${Object.entries(c.contratos).map(([k, v]) => `<div><span>${k}</span><b>${App.linkDir(v)}</b></div>`).join("")}</div></div>
   <div class="row between"><h2>Tus eventos</h2><button class="btn primary lg" type="button" data-paso="evento">Crear un evento nuevo →</button></div>
   ${evs.length ? `<div class="tbl-wrap"><table><thead><tr><th>Evento</th><th>Fecha</th><th>Estado</th><th>Vendidas</th><th></th></tr></thead><tbody>${evs.map((e) => `<tr><td><b>${esc(e.nombre)}</b><br><span class="muted small">#${esc(e.idEvento)} · ${esc(e.lugar)}</span></td><td class="num">${fFecha(e.fechaHora)}</td><td>${estadoPill(e.estado)}</td><td class="num">${e.vendidas} / ${e.capacidad}</td><td><button class="btn sm" type="button" data-ver="${esc(e.idEvento)}">Ver ventas</button></td></tr>`).join("")}</tbody></table></div>` : `<div class="empty">Todavía no creaste eventos con esta billetera.</div>`}`;
 }
 
+function desplieguePanel() {
+  const txs = (App.est.transacciones || []).filter((t) => t.fase === "despliegue").reverse();
+  if (!txs.length) return "";
+  return `<div class="card list" style="gap:8px"><div class="row between"><h3>Contratos desplegados al iniciar la demo</h3><span class="pill p-ok">${txs.length} transacciones</span></div>
+    <p class="muted small">Esta sesión no usa contratos anteriores: se crearon recién con tu billetera, que quedó como administradora y con los cuatro roles.</p>
+    <div class="tbl-wrap"><table><tbody>${txs.map((t, i) => `<tr><td class="num muted">${i + 1}</td><td>${esc(t.descripcion)}</td><td class="mono small">${esc(t.contrato)}.${esc(t.metodo)}</td><td>${linkTx(t)}</td></tr>`).join("")}</tbody></table></div></div>`;
+}
 function campo(id, label, input, hint) { return `<div class="field ${id === "nombre" || id === "lugar" ? "full" : ""}"><label for="f_${id}">${label}</label>${input}<span class="err" data-err="${id}"></span>${hint ? `<span class="hint">${hint}</span>` : ""}</div>`; }
 const inp = (id, extra = "") => `<input class="input" id="f_${id}" value="${esc(UI.draft[id])}" ${extra}>`;
 const suf = (id, s) => `<div class="suffix">${inp(id, 'inputmode="decimal"')}<span>${s}</span></div>`;

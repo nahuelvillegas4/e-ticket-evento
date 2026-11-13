@@ -11,26 +11,38 @@ Cada acción firma una transacción contra los contratos y muestra el hash, el b
 
 ## Cómo levantarla
 
-Desde la raíz del repositorio, una vez que instalaste las dependencias con `npm install`:
+Desde la raíz del repositorio, con `npm install` hecho y la `PRIVATE_KEY` en el `.env`:
+
+```bash
+npm run chequear:amoy
+```
+
+Ese comando muestra la billetera del `.env` y si tiene saldo suficiente (al menos 0,3 POL; si no alcanza, se carga gratis en https://faucet.polygon.technology).
 
 ```bash
 npm run interfaz:amoy
 ```
 
-Usa `deployments/amoy.json` y la `PRIVATE_KEY` del `.env`. Esa billetera tiene que tener los roles operativos (los asigna `scripts/deploy-red.js`). Los compradores son las mismas cuentas derivadas que usa `scripts/demo-red.js`. Si no les alcanza el saldo, la interfaz les carga POL desde la billetera admin y lo muestra como una transacción más.
+**Cada arranque despliega los tres contratos desde cero** con la billetera del `.env`, que queda como administradora y con los roles de organizador, oráculo, Tribuna Segura y validador. No depende de `deployments/amoy.json` ni de despliegues anteriores. Las 12 transacciones del despliegue se muestran en el paso 1 del organizador, cada una con su enlace a amoy.polygonscan.com. El despliegue tarda alrededor de un minuto y cuesta unos 0,2 POL.
 
-Después abrí `http://localhost:3000`. Para la presentación conviene tener `organizador.html` y `comprador.html` en dos ventanas, una al lado de la otra.
+Si se reinicia el servidor en medio de la demo y querés seguir con los mismos contratos:
+
+```bash
+npm run interfaz:amoy:continuar
+```
+
+Después abrí `http://localhost:3000`. Para la presentación conviene tener `organizador.html` y `comprador.html` en dos ventanas, una al lado de la otra. Los compradores son cuentas derivadas de la `PRIVATE_KEY`. Si no les alcanza el saldo, la interfaz les carga POL desde la billetera del organizador y lo muestra como una transacción más.
 
 Otras redes:
 
 ```bash
-npm run interfaz          # red en memoria de Hardhat: despliega todo al arrancar (ensayo sin internet)
-npm run interfaz:local    # nodo local: antes `npm run nodo` y `npm run deploy:local`
+npm run interfaz          # red en memoria de Hardhat (ensayo sin internet)
+npm run interfaz:local    # nodo local: antes `npm run nodo` en otra terminal
 ```
 
 En las redes locales aparece el botón "Adelantar el reloj de la red", que sirve para mostrar el cierre del evento y las entradas vencidas. En Amoy no se puede adelantar el tiempo.
 
-Variables opcionales del `.env`: `PUERTO_INTERFAZ` (por defecto 3000), `PRECIO_ENTRADA` (precio sugerido, por defecto 0.001 en Amoy) y `RESERVA_GAS` (saldo mínimo que se deja a cada comprador para gas, por defecto 0.03 POL).
+Variables opcionales del `.env`: `PUERTO_INTERFAZ` (por defecto 3000), `PRECIO_ENTRADA` (precio sugerido, por defecto 0.001 en Amoy), `RESERVA_GAS` (saldo mínimo que se deja a cada comprador para gas, por defecto 0.03 POL) y `MINIMO_DESPLIEGUE` (saldo mínimo para arrancar, por defecto 0.3 POL).
 
 ## Rechazos del contrato
 

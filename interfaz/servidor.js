@@ -1,13 +1,15 @@
 /**
  * Servidor de la interfaz web de e-TicketEvento.
  *
- * Sirve las dos aplicaciones (organizador.html y comprador.html) y expone una API JSON
- * que firma y envía transacciones REALES a los contratos desplegados.
- * Las claves privadas se quedan en este proceso (se leen del .env); el navegador nunca las ve.
+ * Al arrancar despliega los tres contratos DESDE CERO con la billetera del .env (PRIVATE_KEY),
+ * que queda como administradora y con todos los roles operativos. No depende de ningún
+ * despliegue anterior. Después sirve organizador.html y comprador.html y expone una API JSON
+ * que firma y envía transacciones REALES. Las claves nunca salen de este proceso.
  *
- *   npm run interfaz:amoy     → Polygon Amoy (usa deployments/amoy.json y PRIVATE_KEY del .env)
- *   npm run interfaz:local    → nodo local (`npm run nodo` + `npm run deploy:local` antes)
- *   npm run interfaz          → red en memoria de Hardhat: despliega todo al arrancar (ensayo sin internet)
+ *   npm run interfaz:amoy            → Polygon Amoy: despliega contratos nuevos (~0,2 POL) y arranca
+ *   npm run interfaz:amoy:continuar  → Polygon Amoy: retoma los contratos del último arranque
+ *   npm run interfaz:local           → nodo local (`npm run nodo` en otra terminal)
+ *   npm run interfaz                 → red en memoria de Hardhat (ensayo sin internet)
  *
  * Después abrir http://localhost:3000
  */
@@ -45,6 +47,7 @@ let qrs = [];
 let registro = { contratos: null, eventos: [] };
 
 /* ------------------------------------------------------------------ utilidades */
+const lc = (a) => String(a || "").toLowerCase();
 const json = (v) => JSON.stringify(v, (_, x) => (typeof x === "bigint" ? x.toString() : x));
 const saltPara = (dni) => ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(["string", "uint256"], ["tribuna-segura/salt/v1", dni]));
 const compromisoDe = (dni, salt) => ethers.keccak256(ethers.AbiCoder.defaultAbiCoder().encode(["uint256", "bytes32"], [dni, salt]));
@@ -54,15 +57,9 @@ function guardarRegistro() {
   fs.mkdirSync(path.dirname(ARCHIVO_REGISTRO), { recursive: true });
   fs.writeFileSync(ARCHIVO_REGISTRO, JSON.stringify(registro, null, 2));
 }
-function cargarRegistro() {
-  if (RED === "hardhat") return;
-  try {
-    const r = JSON.parse(fs.readFileSync(ARCHIVO_REGISTRO, "utf8"));
-    if (r.contratos && r.contratos.EventManager === C.dirEM) registro = r;
-  } catch (_) {
-    /* primera vez */
-  }
-  registro.contratos = { EventManager: C.dirEM };
+function leerRegistroPrevio() {
+  if (RED === "hardhat") return null;
+  try { return JSON.parse(fs.readFileSync(ARCHIVO_REGISTRO, "utf8")); } catch (_) { return null; }
 }
 
 class ErrorUsuario extends Error {
@@ -94,7 +91,7 @@ function nombreDe(addr) {
   if (!addr) return null;
   const a = addr.toLowerCase();
   for (const [k, v] of Object.entries(cuentas)) if (v.address.toLowerCase() === a) return k;
-  for (const [k, v] of Object.entries({ EntradaNFT: C.dirNFT, EventManager: C.dirEM, ReventaMarketplace: C.dirMK })) if (v.toLowerCase() === a) return k;
+  for (const [k, v] of Object.entries({ EntradaNFT: C.dirNFT, EventManager: C.dirEM, ReventaMarketplace: C.dirMK })) if (v && v.toLowerCase() === a) return k;
   return null;
 }
 
@@ -197,19 +194,47 @@ async function asegurarSaldo(actor, necesario = 0n) {
 const ahora = async () => (await ethers.provider.getBlock("latest")).timestamp;
 
 /* ------------------------------------------------------------------ arranque */
-async function desplegarEnMemoria() {
-  const nft = await ethers.deployContract("EntradaNFT");
-  const em = await ethers.deployContract("EventManager", [await nft.getAddress()]);
-  const mk = await ethers.deployContract("ReventaMarketplace", [await nft.getAddress(), await em.getAddress()]);
+/**
+ * Despliega los tres contratos desde cero con la billetera del .env y la deja con todos los roles.
+ * Cada transacción queda registrada (con su enlace al explorador) como parte de la demo.
+ */
+async function desplegar() {
+  const registrar = (descripcion, contrato, metodo, tx, recibo) => {
+    const r = registrarTx({ actor: "organizador", descripcion, contrato, metodo, tx, recibo });
+    r.fase = "despliegue";
+  };
+  const deploy = async (nombre, args = []) => {
+    const c = await ethers.deployContract(nombre, args);
+    const tx = c.deploymentTransaction();
+    const recibo = await tx.wait();
+    const dir = await c.getAddress();
+    if (nombre === "EntradaNFT") { C.nft = c; C.dirNFT = dir; }
+    if (nombre === "EventManager") { C.em = c; C.dirEM = dir; }
+    if (nombre === "ReventaMarketplace") { C.mk = c; C.dirMK = dir; }
+    IFACES = [C.em, C.nft, C.mk].filter(Boolean).map((x) => x.interface);
+    registrar(`Despliegue de ${nombre} en ${dir}`, nombre, "constructor", tx, recibo);
+    return c;
+  };
+  const paso = async (descripcion, contrato, nombre, metodo, args) => {
+    const tx = await contrato[metodo](...args);
+    const recibo = await tx.wait();
+    registrar(descripcion, nombre, metodo, tx, recibo);
+  };
+  console.log(`\nDesplegando contratos nuevos en '${RED}' con ${admin.address}…`);
+  const nft = await deploy("EntradaNFT");
+  const em = await deploy("EventManager", [C.dirNFT]);
+  const mk = await deploy("ReventaMarketplace", [C.dirNFT, C.dirEM]);
   const a = admin.address;
-  await (await nft.setEventManager(await em.getAddress())).wait();
-  await (await em.setMarketplace(await mk.getAddress())).wait();
-  await (await nft.grantRole(await nft.OPERADOR_ROLE(), await em.getAddress())).wait();
-  await (await nft.grantRole(await nft.OPERADOR_ROLE(), await mk.getAddress())).wait();
-  await (await nft.grantRole(await nft.VALIDADOR_ROLE(), a)).wait();
-  await (await em.grantRole(await em.MARKETPLACE_ROLE(), await mk.getAddress())).wait();
-  for (const r of ["ORGANIZADOR_ROLE", "ORACULO_ROLE", "VERIFICADOR_ROLE"]) await (await em.grantRole(await em[r](), a)).wait();
-  return { EntradaNFT: await nft.getAddress(), EventManager: await em.getAddress(), ReventaMarketplace: await mk.getAddress() };
+  await paso("Conectar EntradaNFT con EventManager", nft, "EntradaNFT", "setEventManager", [C.dirEM]);
+  await paso("Conectar EventManager con el Marketplace", em, "EventManager", "setMarketplace", [C.dirMK]);
+  await paso("OPERADOR_ROLE para EventManager (puede acuñar)", nft, "EntradaNFT", "grantRole", [await nft.OPERADOR_ROLE(), C.dirEM]);
+  await paso("OPERADOR_ROLE para el Marketplace (puede mover entradas)", nft, "EntradaNFT", "grantRole", [await nft.OPERADOR_ROLE(), C.dirMK]);
+  await paso("MARKETPLACE_ROLE para el Marketplace", em, "EventManager", "grantRole", [await em.MARKETPLACE_ROLE(), C.dirMK]);
+  await paso("VALIDADOR_ROLE para la billetera del organizador (puerta)", nft, "EntradaNFT", "grantRole", [await nft.VALIDADOR_ROLE(), a]);
+  await paso("ORGANIZADOR_ROLE para la billetera del organizador", em, "EventManager", "grantRole", [await em.ORGANIZADOR_ROLE(), a]);
+  await paso("ORACULO_ROLE para la billetera del organizador", em, "EventManager", "grantRole", [await em.ORACULO_ROLE(), a]);
+  await paso("VERIFICADOR_ROLE para la billetera del organizador (Tribuna Segura)", em, "EventManager", "grantRole", [await em.VERIFICADOR_ROLE(), a]);
+  return { EntradaNFT: C.dirNFT, EventManager: C.dirEM, ReventaMarketplace: C.dirMK };
 }
 
 async function iniciar() {
@@ -218,16 +243,24 @@ async function iniciar() {
   admin = signers[0];
   chainId = Number((await ethers.provider.getNetwork()).chainId);
 
-  let dirs;
-  if (RED === "hardhat") {
-    dirs = await desplegarEnMemoria();
-  } else {
-    const archivo = path.join(CARPETA, "..", "deployments", `${RED}.json`);
-    if (!fs.existsSync(archivo)) throw new Error(`No existe deployments/${RED}.json. Ejecutá antes: npm run deploy:${RED === "amoy" ? "amoy" : "local"}`);
-    dirs = JSON.parse(fs.readFileSync(archivo, "utf8")).contratos;
-    for (const [n, d] of Object.entries(dirs)) {
-      if ((await ethers.provider.getCode(d)) === "0x") throw new Error(`${n} no existe en ${d}. Volvé a desplegar en ${RED}.`);
+  // Por defecto se despliegan contratos nuevos en cada arranque (independiente de deployments/<red>.json).
+  // Con REUSAR_CONTRATOS=1 se retoman los del último arranque si siguen en la red y son de esta billetera.
+  let dirs = null;
+  const previo = leerRegistroPrevio();
+  if (process.env.REUSAR_CONTRATOS === "1" && previo?.contratos?.ReventaMarketplace && lc(previo.admin) === lc(admin.address)) {
+    let vivos = true;
+    for (const d of Object.values(previo.contratos)) if ((await ethers.provider.getCode(d)) === "0x") vivos = false;
+    if (vivos) { dirs = previo.contratos; registro = previo; console.log("Reutilizando los contratos del último arranque."); }
+  }
+  if (!dirs) {
+    if (!ES_LOCAL) {
+      const saldo = await ethers.provider.getBalance(admin.address);
+      const minimo = ethers.parseEther(process.env.MINIMO_DESPLIEGUE || "0.3");
+      if (saldo < minimo) throw new Error(`La billetera ${admin.address} tiene ${ethers.formatEther(saldo)} ${MONEDA}. Para desplegar y operar la demo se necesitan al menos ${ethers.formatEther(minimo)}. Cargá POL de prueba en https://faucet.polygon.technology`);
     }
+    dirs = await desplegar();
+    registro = { red: RED, fecha: new Date().toISOString(), admin: admin.address, contratos: dirs, eventos: [] };
+    guardarRegistro();
   }
   C.nft = await ethers.getContractAt("EntradaNFT", dirs.EntradaNFT);
   C.em = await ethers.getContractAt("EventManager", dirs.EventManager);
@@ -251,7 +284,6 @@ async function iniciar() {
     cuentas.comprador1 = { ...PERFILES_COMPRADORES[0], address: w1.address, signer: w1 };
     cuentas.comprador2 = { ...PERFILES_COMPRADORES[1], address: w2.address, signer: w2 };
   }
-  cargarRegistro();
 }
 
 async function rolesDe(addr) {
@@ -470,7 +502,7 @@ function servirArchivo(req, res) {
   let rel = decodeURIComponent(new URL(req.url, "http://x").pathname);
   if (rel === "/") rel = "/index.html";
   const archivo = path.normalize(path.join(CARPETA, rel));
-  if (!archivo.startsWith(CARPETA + path.sep) || path.basename(archivo) === "servidor.js" || !fs.existsSync(archivo) || fs.statSync(archivo).isDirectory()) {
+  if (!archivo.startsWith(CARPETA + path.sep) || path.basename(archivo).startsWith("servidor") || !fs.existsSync(archivo) || fs.statSync(archivo).isDirectory()) {
     res.writeHead(404, { "Content-Type": "text/plain; charset=utf-8" });
     return res.end("No encontrado");
   }
