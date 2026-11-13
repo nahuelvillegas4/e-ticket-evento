@@ -55,7 +55,11 @@ e-ticket-evento/
 │   ├── deploy.js                  # Despliegue con varias cuentas (red local)
 │   ├── deploy-red.js              # Despliegue con una sola billetera (localhost o Amoy)
 │   ├── demo.js                    # Demo rápida en red en memoria
-│   └── demo-red.js                # Demo completa sobre localhost o Amoy (incluye cancelación y cierre)
+│   ├── demo-red.js                # Demo completa sobre localhost o Amoy (incluye cancelación y cierre)
+│   ├── chequear-red.js            # Chequeo previo a la demo: billetera del .env y saldo
+│   ├── cuentas-demo.js            # Cuentas de la demo para importar en MetaMask
+│   └── otorgar-roles.js           # Otorga los roles operativos a otra billetera
+├── interfaz/                      # Demo web: organizador.html, comprador.html y servidor.js
 ├── deployments/                   # Direcciones desplegadas por red (amoy.json)
 ├── docs/
 │   ├── INFORME_DESARROLLO_5K3A.md # Informe técnico académico completo
@@ -114,6 +118,51 @@ npm run deploy:amoy       # guarda las direcciones en deployments/amoy.json
 npm run demo:amoy         # cada transacción imprime su enlace a amoy.polygonscan.com
 npx hardhat verify --network amoy <dirección> <argumentos>   # opcional: publica el código fuente
 ```
+
+---
+
+## 🖥️ Demo con interfaz gráfica (Polygon Amoy)
+
+Dos aplicaciones web, una para el **organizador** y otra para el **comprador**. Cada acción en pantalla firma una transacción real contra los contratos y muestra su enlace a amoy.polygonscan.com. Al arrancar se despliegan contratos nuevos con la billetera del `.env`, que queda con todos los roles, así que la demo no depende de despliegues anteriores. Más detalle en [`interfaz/README.md`](interfaz/README.md).
+
+**1. Traer la última versión e instalar** (la primera vez o si hubo cambios):
+
+```bash
+git checkout Interfaz
+git pull
+npm install
+```
+
+**2. Revisar la billetera y el saldo** (se necesitan al menos 0,3 POL; si falta, cargar en https://faucet.polygon.technology):
+
+```bash
+npm run chequear:amoy
+```
+
+**3. Ver las cuentas de los compradores** (opcional, para importarlas en MetaMask y seguir los saldos en vivo):
+
+```bash
+npm run cuentas:amoy
+```
+
+**4. Arrancar la demo** (despliega los contratos en alrededor de 1 minuto y levanta el servidor):
+
+```bash
+npm run interfaz:amoy
+```
+
+Cuando la terminal muestre `Abrí http://localhost:3000`, abrir dos ventanas del navegador, una al lado de la otra:
+
+* http://localhost:3000/organizador.html
+* http://localhost:3000/comprador.html
+
+La terminal tiene que quedar abierta durante toda la demo. Si se cierra, para seguir con los mismos contratos:
+
+```bash
+npm run interfaz:amoy:continuar
+```
+
+Para ensayar sin gastar POL: `npm run interfaz` (red local en memoria, incluye el botón para adelantar el reloj y mostrar el cierre del evento).
 
 ---
 
