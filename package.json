@@ -18,7 +18,8 @@
     "interfaz:amoy": "hardhat run interfaz/servidor.js --network amoy",
     "chequear:amoy": "hardhat run scripts/chequear-red.js --network amoy",
     "roles:amoy": "hardhat run scripts/otorgar-roles.js --network amoy",
-    "interfaz:amoy:continuar": "hardhat run interfaz/servidor-continuar.js --network amoy"
+    "interfaz:amoy:continuar": "hardhat run interfaz/servidor-continuar.js --network amoy",
+    "cuentas:amoy": "hardhat run scripts/cuentas-demo.js --network amoy"
   },
   "author": "Chas Díaz, Tombesi, Villegas, Rottino",
   "license": "MIT",
