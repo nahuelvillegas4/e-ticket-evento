@@ -279,6 +279,13 @@ function vistaCierre() {
 }
 
 /* ------------------------------------------------------------------ render */
+function avisoRoles() {
+  const faltan = Object.entries(App.cfg.organizador.roles).filter(([, v]) => !v).map(([k]) => k);
+  if (!faltan.length) return "";
+  return `<div class="box bad"><b>La billetera que firma no tiene permisos en estos contratos</b>
+    <span class="small">${App.linkDir(App.cfg.organizador.address)} no tiene <span class="mono">${faltan.join(", ")}</span>. El contrato va a rechazar esas operaciones con <span class="mono">AccessControlUnauthorizedAccount</span>.</span>
+    <span class="small">Para resolverlo: usá en el <span class="mono">.env</span> la clave de la billetera que desplegó los contratos, pedile a esa billetera que te otorgue los roles (<span class="mono">npm run roles:amoy</span>) o desplegá contratos nuevos con la tuya (<span class="mono">npm run deploy:amoy</span>). Detalle: <span class="mono">npm run chequear:amoy</span>.</span></div>`;
+}
 function pintarPasos() {
   const hecho = { billetera: true, evento: UI.draft && CAMPOS_PASO.evento.every((k) => !validar(UI.draft).fmt[k]), reglas: UI.draft && CAMPOS_PASO.reglas.every((k) => !validar(UI.draft).fmt[k]) };
   let html = "";
@@ -310,7 +317,7 @@ function pintar(completo) {
   const formulario = UI.paso === "evento" || UI.paso === "reglas";
   if (!completo && formulario && $("#form")) return;
   if (!completo && UI.paso === "puerta" && $("#fila")) { $("#fila").innerHTML = filaHTML(); return; }
-  $("#main").innerHTML = VISTAS[UI.paso]();
+  $("#main").innerHTML = avisoRoles() + VISTAS[UI.paso]();
   if (formulario) revisarForm();
 }
 function irA(paso) { UI.paso = paso; try { history.replaceState(null, "", "#" + paso); } catch (_) {} pintar(true); window.scrollTo({ top: 0 }); }

@@ -511,6 +511,14 @@ iniciar()
       console.log(`  Organizador:  ${admin.address}`);
       console.log(`  Comprador 1:  ${cuentas.comprador1.address}`);
       console.log(`  Comprador 2:  ${cuentas.comprador2.address}`);
+      rolesDe(admin.address).then((r) => {
+        const faltan = Object.entries(r).filter(([, v]) => !v).map(([k]) => k);
+        if (faltan.length) {
+          console.log(`\n  ⚠ La billetera del .env (${admin.address}) NO tiene: ${faltan.join(", ")}.`);
+          console.log(`    El contrato va a rechazar crear/cancelar/cerrar eventos, verificar identidades o validar ingresos.`);
+          console.log(`    Corré "npm run chequear:${RED === "amoy" ? "amoy" : RED}" para ver cómo resolverlo.`);
+        }
+      });
       console.log(`\n  Abrí http://localhost:${PUERTO}  (organizador: /organizador.html · comprador: /comprador.html)\n`);
     });
   })
