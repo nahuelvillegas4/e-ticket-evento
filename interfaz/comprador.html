@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>e-TicketEvento · Entradas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="comun.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="index.html"><span class="brand-mark">eT</span><span><b>e-TicketEvento</b><small>Entradas oficiales</small></span></a>
+  <span id="chipRed"></span>
+  <span class="who" id="quien"></span>
+  <label class="switch"><input type="checkbox" id="toggleRiel"> Mostrar blockchain</label>
+</header>
+
+<div class="page">
+  <main>
+    <nav class="tabs" id="tabs" role="tablist"></nav>
+    <section id="main" class="list" style="gap:16px"><div class="loading">Conectando con la red…</div></section>
+  </main>
+  <aside class="rail" aria-label="En la blockchain">
+    <div class="panel"><h3>Qué pasa en la blockchain</h3><div id="explica"></div></div>
+    <div class="panel"><h3>Estado de la entrada <span id="railTid"></span></h3><div id="railEntrada"></div></div>
+    <div class="panel"><h3>Tus transacciones <span class="chip" id="railBloque"></span></h3><div class="feed" id="feed"></div></div>
+  </aside>
+</div>
+<div id="modal"></div><div id="modalTop"></div><div id="toasts" aria-live="polite"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script src="simulador.js"></script>
+<script src="comun.js"></script>
+<script>
+"use strict";
+const TABS = [["cartelera", "Cartelera"], ["entradas", "Mis entradas"], ["reventa", "Reventa"], ["saldo", "Mi saldo"]];
+const EXPLICA = {
+  cartelera: { titulo: "La cartelera se lee de la blockchain", fn: "EventManager.obtenerEvento(id)", texto: "Precio, cupo, tope de reventa y estado de cada evento salen directo del contrato. Ningún intermediario los puede cambiar.", rotulo: "Lo que vas a ver en la compra", puntos: ["Tu DNI se transforma en un compromiso criptográfico", "Tribuna Segura firma que ese compromiso es tuyo", "Pagás el precio exacto y se acuña tu entrada NFT"] },
+  identidad: { titulo: "Tu DNI no sale de este dispositivo", fn: "compromiso = keccak256(abi.encode(DNI, salt))", texto: "A la red solo llega un hash. Con el mismo DNI siempre se obtiene el mismo compromiso, así el contrato puede limitar entradas por persona sin conocer a la persona (Ley 25.326)." },
+  verificacion: { titulo: "Tribuna Segura firma tu identidad", fn: "EIP-712 · VerificarIdentidad(compromiso, comprador, idEvento)", texto: "El verificador firma un mensaje tipado que ata tu compromiso a tu billetera y a este evento. La firma no cuesta gas: se adjunta a la compra.", puntos: ["El contrato recupera quién firmó con <span class='mono'>ECDSA.recover</span>", "Si no tiene <span class='mono'>VERIFICADOR_ROLE</span>: <span class='mono'>FirmaInvalida</span>", "En fútbol se consulta el registro de derecho de admisión"] },
+  pago: { titulo: "Pago en custodia (escrow)", fn: "EventManager.comprarEntrada{value: precio}()", texto: "El dinero no va al organizador: queda en el contrato hasta 24 h después del evento. Si el evento se cancela, recuperás el 100 %.", puntos: ["Evento Programado y antes de la fecha", "Cupo disponible: <span class='mono'>CapacidadAgotada</span>", "Monto exacto: <span class='mono'>MontoIncorrecto</span>", "Máximo por DNI: <span class='mono'>LimitePorPersonaExcedido</span>"] },
+  resultado: { titulo: "Se acuñó tu entrada NFT", fn: "EntradaNFT.mint → ERC-721 + ERC-2981", texto: "La entrada es un token a tu nombre, con la regalía del artista incorporada para cada reventa.", estado: "Nace en <b>Asignada</b>." },
+  entradas: { titulo: "Tus entradas son NFTs con candado", fn: "EntradaNFT._update (hook)", texto: "Podés mostrar el QR, revenderla en el canal oficial o pedir el reembolso si el evento se cancela. Lo que no podés es pasarla por fuera de la plataforma.", puntos: ["<span class='mono'>transferFrom</span> y <span class='mono'>approve</span> revierten con <span class='mono'>TransferenciaDirectaBloqueada</span>", "Solo los contratos con OPERADOR_ROLE mueven entradas"] },
+  qr: { titulo: "QR dinámico firmado por tu billetera", fn: "EIP-712 · ValidarAcceso(tokenId, timestamp)", texto: "El QR contiene tu firma con la hora de la red. Vale 60 segundos y se renueva solo, así que una captura de pantalla no sirve para entrar.", estado: "En la puerta pasa de <b>Asignada</b> a <b>Utilizada</b>." },
+  publicar: { titulo: "Reventa con tope legal", fn: "ReventaMarketplace.publicarReventa(tokenId, precio)", texto: "El marketplace toma la entrada en custodia y la ofrece al precio que pongas, siempre que no supere el tope del evento.", puntos: ["Precio ≤ original × (1 + tope): <span class='mono'>PrecioSuperaTope</span>", "Reventas disponibles: <span class='mono'>MaxTransferenciasAlcanzado</span>"], estado: "Asignada → <b>En reventa</b>." },
+  reventa: { titulo: "Reparto automático en cada reventa", fn: "ReventaMarketplace.revenderEntrada{value}()", texto: "Al comprar, el contrato reparte el pago: regalía al artista (ERC-2981), comisión a la ticketera y el resto al vendedor. Cada uno lo retira cuando quiere.", puntos: ["Tu identidad también se verifica", "El compromiso de la entrada pasa a ser el tuyo", "Suma una reventa al contador de la entrada"], estado: "En reventa → <b>Asignada</b> (con nuevo titular)." },
+  p2p: { titulo: "Ataque: venta en el mercado negro", fn: "EntradaNFT.transferFrom(de, para, tokenId)", texto: "Así se revende hoy por fuera: se pasa la entrada directo. El contrato sobrescribe <span class='mono'>_update</span> y lo impide.", estado: "No cambia nada: la transacción revierte." },
+  saldo: { titulo: "Patrón pull: cada uno retira lo suyo", fn: "EventManager.retirarFondos()", texto: "Los reembolsos y lo cobrado por reventas no se envían automáticamente: se acreditan en el contrato y cada persona los retira. Así un receptor malicioso no puede trabar a los demás.", puntos: ["Sin saldo: <span class='mono'>SinSaldo</span>", "Se pone el saldo en 0 antes de transferir (checks-effects-interactions)"] },
+  reembolso: { titulo: "Reembolso por cancelación", fn: "EventManager.reclamarReembolso(tokenId)", texto: "Si el oráculo canceló el evento, el titular reclama el precio original. Se acredita en su saldo y lo retira cuando quiere.", puntos: ["Evento Cancelado", "No reembolsada antes: <span class='mono'>YaReembolsada</span>", "Solo el titular: <span class='mono'>NoEsTitular</span>"], estado: "Asignada o En reventa → <b>Reembolsada</b>." },
+};
+
+const UI = { tab: "cartelera", cuenta: "comprador1", ident: {}, sel: null, expl: null, ck: null, qr: null };
+const yo = () => App.cfg.compradores.find((c) => c.id === UI.cuenta);
+const otro = () => App.cfg.compradores.find((c) => c.id !== UI.cuenta);
+
+function misEntradas() {
+  const a = lc(yo().address);
+  return App.est.entradas.filter((t) => lc(t.titular) === a || lc(t.vendedor) === a).sort((x, y) => y.tokenId - x.tokenId);
+}
+
+/* ------------------------------------------------------------------ vistas */
+function vistaCartelera() {
+  const evs = App.est.eventos.slice().sort((a, b) => a.fechaHora - b.fechaHora);
+  if (!evs.length) return `<div class="empty">Todavía no hay eventos a la venta.<span class="small">El organizador los publica desde su panel.</span><a class="btn dark" href="organizador.html" target="_blank" rel="noopener">Abrir el panel del organizador ↗</a></div>`;
+  return `<div class="view-head"><h1>Cartelera</h1><p>Comprá tu entrada oficial. Se emite a tu nombre en el momento de la compra y el pago queda protegido hasta que el evento se realice.</p></div>
+  <div class="grid-cards">${evs.map((e) => {
+    const quedan = e.capacidad - e.vendidas;
+    let cta = `<button class="btn primary" type="button" data-comprar="${esc(e.idEvento)}">Comprar entrada</button>`;
+    if (e.estado === "Cancelado") cta = `<span class="pill p-bad">Evento cancelado · reembolsos habilitados</span>`;
+    else if (e.estado === "Finalizado") cta = `<span class="pill p-mute">Evento finalizado</span>`;
+    else if (App.est.ahora >= e.fechaHora) cta = `<button class="btn" type="button" data-comprar="${esc(e.idEvento)}">Venta cerrada · intentar</button>`;
+    else if (quedan <= 0) cta = `<button class="btn" type="button" data-comprar="${esc(e.idEvento)}">Agotado · intentar</button>`;
+    return `<article class="poster">${posterArt(e)}<div class="body">
+      <div><h3 style="font-size:1.12rem">${esc(e.nombre)}</h3><p class="muted small">${esc(e.lugar)}</p></div>
+      <div class="row between"><span class="price">${monto(e.precioBase)}</span>${estadoPill(e.estado)}</div>
+      <div><div class="row between muted small"><span class="num">${quedan.toLocaleString("es-AR")} disponibles</span><span>máx. ${e.limitePorPersona} por persona</span></div><div class="bar" style="margin-top:5px"><i style="width:${Math.min(100, (e.vendidas / e.capacidad) * 100)}%"></i></div></div>
+      <div class="row" style="gap:6px"><span class="chip">Reventa hasta +${pct(e.topeBps)}</span>${e.requiereAdmision ? `<span class="chip">Tribuna Segura</span>` : ""}<span class="chip">QR dinámico</span></div>
+      <div class="spacer"></div>${cta}</div></article>`;
+  }).join("")}</div>`;
+}
+
+function ticketHTML(t, compacto) {
+  const e = App.evento(t.idEvento) || {};
+  const est = t.estadoEfectivo;
+  const col = { Utilizada: "var(--chain)", Reembolsada: "var(--bad)", Vencida: "var(--muted)", "En reventa": "var(--warn)" }[est];
+  const a = [];
+  if (!compacto) {
+    if (est === "Asignada" && e.estado === "Programado") {
+      a.push(`<button class="btn sm primary" type="button" data-qr="${t.tokenId}">Mostrar QR de ingreso</button>`);
+      a.push(`<button class="btn sm" type="button" data-revender="${t.tokenId}">Revender</button>`);
+      a.push(`<button class="btn sm ghost" type="button" data-p2p="${t.tokenId}">Pasársela a alguien</button>`);
+    }
+    if (est === "En reventa" && e.estado === "Programado") a.push(`<button class="btn sm" type="button" data-retirarpub="${t.idPublicacion}">Retirar de la reventa</button>`);
+    if (e.estado === "Cancelado" && (t.estado === "Asignada" || t.estado === "EnReventa")) a.push(`<button class="btn sm primary" type="button" data-reembolso="${t.tokenId}">Pedir reembolso · ${monto(t.precioOriginal)}</button>`);
+    if (e.estado === "Cancelado" && t.estado === "Reembolsada") a.push(`<button class="btn sm ghost" type="button" data-reembolso="${t.tokenId}">Pedir reembolso otra vez</button>`);
+  }
+  const pub = t.idPublicacion ? App.est.publicaciones.find((p) => p.id === t.idPublicacion) : null;
+  return `<article class="ticket ${!compacto && UI.sel === t.tokenId ? "sel" : ""} ${["Utilizada", "Reembolsada", "Vencida"].includes(est) ? "dim" : ""}">
+    ${col ? `<span class="stamp" style="color:${col}">${esc(est)}</span>` : ""}
+    <div class="main" data-sel="${t.tokenId}">
+      <div class="row" style="gap:8px">${estadoPill(est)}<span class="chip">${TIPO_LABEL[e.tipo] || ""}</span>${pub ? `<span class="chip">Publicada a ${monto(pub.precio)}</span>` : ""}</div>
+      <div class="ev-name">${esc(e.nombre || "Evento #" + t.idEvento)}</div>
+      <div class="meta"><span>${e.fechaHora ? fFecha(e.fechaHora) : ""}</span><span>${esc(e.lugar || "")}</span></div>
+      <div class="kvs"><div><small>Precio original</small><b>${monto(t.precioOriginal)}</b></div><div><small>Reventas</small><b>${t.cantTransferencias} / ${e.maxTransferencias ?? "—"}</b></div><div><small>Titular</small><b class="mono">${short(t.titular)}</b></div></div>
+      <div class="muted small">Identidad <span class="mono">${shortH(t.compromiso)}</span></div>
+      ${a.length ? `<div class="actions">${a.join("")}</div>` : ""}
+    </div>
+    <div class="stub"><small>Entrada</small><span class="tid">#${t.tokenId}</span><small>ERC-721</small></div>
+  </article>`;
+}
+function vistaEntradas() {
+  const ts = misEntradas();
+  const head = `<div class="view-head"><h1>Mis entradas</h1><p>Entradas de <b>${esc(yo().nombre)}</b>. Tocá una para seguir sus estados en el panel de la derecha.</p></div>`;
+  if (!ts.length) return head + `<div class="empty">Todavía no tenés entradas.<button class="btn primary" type="button" data-tab="cartelera">Ir a la cartelera</button></div>`;
+  return head + `<div class="list">${ts.map((t) => ticketHTML(t)).join("")}</div>`;
+}
+function vistaReventa() {
+  const activas = App.est.publicaciones.filter((p) => p.estado === "Activa").sort((a, b) => b.id - a.id);
+  const head = `<div class="view-head"><h1>Reventa oficial</h1><p>El único lugar donde una entrada cambia de dueño. El precio nunca supera el tope del evento y cada venta le paga al artista.</p></div>`;
+  if (!activas.length) return head + `<div class="empty">No hay entradas en reventa.<span class="small">Desde “Mis entradas” podés publicar la tuya.</span></div>`;
+  return head + `<div class="grid-cards">${activas.map((p) => {
+    const t = App.entrada(p.tokenId), e = App.evento(t?.idEvento);
+    if (!t || !e) return "";
+    const max = (big(t.precioOriginal) * BigInt(10000 + e.topeBps)) / 10000n;
+    const sobre = Number(((big(p.precio) - big(t.precioOriginal)) * 10000n) / big(t.precioOriginal)) / 100;
+    const mia = lc(p.vendedor) === lc(yo().address);
+    return `<article class="poster">${posterArt(e)}<div class="body">
+      <div><h3 style="font-size:1.12rem">${esc(e.nombre)}</h3><p class="muted small">Entrada #${t.tokenId} · la vende ${esc(App.quien(p.vendedor))}</p></div>
+      <div class="row between"><span class="price">${monto(p.precio)}</span><span class="pill ${sobre > 0 ? "p-warn" : "p-ok"}">${sobre >= 0 ? "+" : ""}${sobre.toLocaleString("es-AR")} % del original</span></div>
+      <div class="kv small"><div><span>Precio original</span><b>${monto(t.precioOriginal)}</b></div><div><span>Tope permitido</span><b>${monto(max)}</b></div><div><span>Reventas previas</span><b>${t.cantTransferencias} / ${e.maxTransferencias}</b></div></div>
+      <div class="spacer"></div>
+      ${mia ? `<button class="btn" type="button" data-retirarpub="${p.id}">Es tuya · retirarla</button>` : `<button class="btn primary" type="button" data-comprarpub="${p.id}">Comprar en reventa</button>`}
+    </div></article>`;
+  }).join("")}</div>`;
+}
+function vistaSaldo() {
+  const s = App.saldo(yo().address);
+  const acreditados = [];
+  for (const tx of App.est.transacciones) for (const ev of tx.eventos || []) if (ev.nombre === "SaldoAcreditado" && lc(ev.args.beneficiario) === lc(yo().address)) acreditados.push({ tx, monto: ev.args.monto });
+  return `<div class="view-head"><h1>Mi saldo</h1><p>Lo que cobraste por reventas o reembolsos queda acreditado en el contrato hasta que lo retires.</p></div>
+  <div class="grid-2">
+    <div class="card list"><div class="stat"><small>Para retirar</small><b>${monto(s.pendiente)}</b></div><button class="btn primary" type="button" id="retirar">Retirar a mi billetera</button><span class="muted small">${big(s.pendiente) === 0n ? "Si retirás sin saldo, el contrato responde SinSaldo()." : "Pasa a tu billetera en una sola transacción."}</span></div>
+    <div class="card list"><div class="stat"><small>Saldo en billetera</small><b>${monto(s.balance)}</b></div><div class="small">${App.linkDir(yo().address)}</div>${App.modo === "red" && App.cfg.red === "amoy" ? `<span class="muted small">Si no alcanza para pagar, la interfaz carga saldo desde la billetera del organizador (red de prueba).</span>` : ""}</div>
+  </div>
+  ${acreditados.length ? `<h2>Acreditaciones</h2><div class="tbl-wrap"><table><thead><tr><th>Origen</th><th>Monto</th><th>Transacción</th></tr></thead><tbody>${acreditados.map((a) => `<tr><td>${esc(a.tx.descripcion)}</td><td class="num">${monto(a.monto)}</td><td>${linkTx(a.tx)}</td></tr>`).join("")}</tbody></table></div>` : ""}`;
+}
+
+/* ------------------------------------------------------------------ compra (primaria y reventa) */
+function abrirCompra(modo, id) {
+  const prev = UI.ident[UI.cuenta];
+  UI.ck = { modo, id, paso: 1, nombre: prev?.nombre || yo().nombre, dni: prev?.dni || yo().dni, v: null, rechazo: null, ocupado: false, atk: { firma: false, monto: false }, r: null };
+  UI.expl = "identidad"; pintarRiel(); pintarCompra();
+}
+const ckEvento = () => UI.ck.modo === "primaria" ? App.evento(UI.ck.id) : App.evento(App.entrada(App.est.publicaciones.find((p) => p.id === UI.ck.id).tokenId).idEvento);
+const ckPub = () => App.est.publicaciones.find((p) => p.id === UI.ck.id);
+const ckPrecio = () => big(UI.ck.modo === "primaria" ? ckEvento().precioBase : ckPub().precio);
+function pintarCompra() {
+  const ck = UI.ck;
+  if (!ck) { cerrarModal(); return; }
+  const e = ckEvento();
+  const pasos = ["Identidad", "Verificación", "Pago", "Tu entrada"];
+  let body = "", foot = "";
+  if (ck.paso === 1) {
+    const dniOk = /^[1-9]\d{6,7}$/.test(ck.dni), nomOk = ck.nombre.trim().length >= 3;
+    body = `<div class="fieldset">
+      <div class="field"><label for="ck_nombre">Nombre y apellido</label><input class="input ${nomOk ? "" : "bad"}" id="ck_nombre" value="${esc(ck.nombre)}" autocomplete="off"><span class="err">${nomOk ? "" : "Mínimo 3 caracteres."}</span></div>
+      <div class="field"><label for="ck_dni">DNI</label><input class="input ${dniOk ? "" : "bad"}" id="ck_dni" value="${esc(ck.dni)}" inputmode="numeric" maxlength="8" autocomplete="off"><span class="err">${dniOk ? "" : "7 u 8 dígitos, sin puntos."}</span><span class="hint">Probá 30111222 en un partido de fútbol: tiene derecho de admisión.</span></div>
+    </div>
+    <div class="box chain small"><b>Tu DNI no se publica</b><span>Se convierte en un compromiso criptográfico. Al contrato solo llega ese hash, que permite controlar cuántas entradas compra cada persona sin revelar quién es.</span></div>`;
+    foot = `<button class="btn" type="button" data-ck="cerrar">Cancelar</button><button class="btn primary" type="button" data-ck="verificar" ${dniOk && nomOk ? "" : "disabled"}>Continuar</button>`;
+  } else if (ck.paso === 2) {
+    if (ck.ocupado) body = `<div class="spinner"></div><p class="muted" style="text-align:center">Tribuna Segura está verificando tu identidad…</p>`;
+    else if (ck.rechazo) body = `<div class="box bad"><b>No pudimos verificar tu identidad</b><span>${esc(ck.rechazo)}</span></div>`;
+    else {
+      const v = ck.v;
+      body = `<div class="box ok"><b>✓ Identidad verificada</b><div class="kv small">
+        <div><span>Compromiso</span><b class="hash">${esc(v.compromiso)}</b></div>
+        <div><span>Firmó</span><b>${esc(App.quien(v.firmante))} · <span class="mono">${short(v.firmante)}</span></b></div>
+        <div><span>¿Tiene VERIFICADOR_ROLE?</span><b>${v.firmanteEsVerificador ? "Sí" : "No → el contrato va a responder FirmaInvalida"}</b></div>
+        <div><span>Entradas de esta persona en el evento</span><b>${v.yaTiene} de ${e.limitePorPersona}</b></div></div>
+        <span class="hash muted">firma ${esc(v.firma)}</span></div>
+        ${v.yaTiene >= e.limitePorPersona ? `<div class="box warn small">Ya tenés el máximo de entradas para este evento. Si seguís, el contrato va a rechazar la compra con <span class="mono">LimitePorPersonaExcedido</span>.</div>` : ""}`;
+    }
+    body += `<details class="attack" ${ck.atk.firma ? "open" : ""}><summary>Pruebas de ataque</summary><label><input type="checkbox" id="atk_firma" ${ck.atk.firma ? "checked" : ""}><span>Saltear a Tribuna Segura: firmar la verificación con mi propia billetera</span></label></details>`;
+    foot = `<button class="btn" type="button" data-ck="atras">Atrás</button>${!ck.ocupado && !ck.rechazo ? `<button class="btn primary" type="button" data-ck="pago">Continuar al pago</button>` : ""}`;
+  } else if (ck.paso === 3) {
+    const precio = ckPrecio(), enviar = ck.atk.monto ? (precio * 9n) / 10n : precio, s = App.saldo(yo().address);
+    let reparto = "";
+    if (ck.modo === "reventa") {
+      const t = App.entrada(ckPub().tokenId), reg = (precio * BigInt(e.regaliaBps)) / 10000n, com = (precio * BigInt(e.comisionBps)) / 10000n;
+      reparto = `<div class="box"><b>Cómo se reparte tu pago</b><div class="kv small"><div><span>Artista (${pct(e.regaliaBps)})</span><b>${monto(reg)}</b></div><div><span>Ticketera (${pct(e.comisionBps)})</span><b>${monto(com)}</b></div><div><span>${esc(App.quien(ckPub().vendedor))}</span><b>${monto(precio - reg - com)}</b></div></div><span class="muted small">Entrada #${t.tokenId} · precio original ${monto(t.precioOriginal)}</span></div>`;
+    }
+    body = `<div class="kv">
+      <div><span>${ck.modo === "primaria" ? "Entrada general" : "Entrada en reventa"}</span><b>${monto(precio)}</b></div>
+      <div class="total"><span>Vas a enviar</span><b>${monto(enviar)}</b></div>
+      <div><span>Saldo de tu billetera</span><b>${monto(s.balance)}</b></div>
+    </div>${reparto}
+    <div class="box chain small">${ck.modo === "primaria" ? "El pago queda en custodia del contrato hasta 24 h después del evento. Si se cancela, recuperás el 100 %." : "El contrato reparte el pago al instante y te transfiere la entrada."}</div>
+    <details class="attack" ${ck.atk.monto ? "open" : ""}><summary>Pruebas de ataque</summary><label><input type="checkbox" id="atk_monto" ${ck.atk.monto ? "checked" : ""}><span>Pagar un 10 % menos</span></label></details>`;
+    foot = `<button class="btn" type="button" data-ck="atras">Atrás</button><button class="btn primary" type="button" data-ck="pagar">Pagar ${monto(enviar)}</button>`;
+  } else {
+    const r = ck.r;
+    const tid = ck.modo === "primaria" ? r.tokenId : ckPub()?.tokenId;
+    const t = App.entrada(tid);
+    body = `<div class="mint">${t ? ticketHTML(t, true) : ""}</div><div class="box ok"><b>¡Listo! La entrada es tuya.</b><span class="small">${ck.modo === "primaria" ? "Se acuñó a tu nombre como NFT." : "El marketplace te la transfirió con tu identidad."}</span></div>`;
+    foot = `<button class="btn" type="button" data-ck="cerrar">Seguir comprando</button><button class="btn primary" type="button" data-ck="ver">Ver mis entradas</button>`;
+  }
+  abrirModal(`<div class="modal wide"><div class="modal-head"><div><span class="chip">${ck.modo === "primaria" ? "Compra oficial" : "Compra en reventa"}</span><h2 style="margin-top:4px">${esc(e.nombre)}</h2><p class="muted small">${fFecha(e.fechaHora)} · ${esc(e.lugar)}</p></div><button class="btn ghost sm x" type="button" data-ck="cerrar">Cerrar</button></div>
+    <div class="modal-body"><div class="wsteps">${pasos.map((p, i) => `<div class="wstep ${i + 1 < ck.paso ? "done" : i + 1 === ck.paso ? "cur" : ""}"><i></i>${p}</div>`).join("")}</div>${body}</div>
+    <div class="modal-foot">${foot}</div></div>`);
+}
+async function verificar() {
+  const ck = UI.ck, e = ckEvento();
+  ck.paso = 2; ck.ocupado = true; ck.rechazo = null; ck.v = null; UI.expl = "verificacion"; pintarRiel(); pintarCompra();
+  const r = await App.post("identidad/verificar", { cuenta: UI.cuenta, dni: ck.dni, idEvento: e.idEvento, falsificar: ck.atk.firma });
+  if (UI.ck !== ck) return;
+  ck.ocupado = false;
+  if (!r.ok) { ck.rechazo = r.error?.mensaje || ERR_MSG[r.error?.nombre] || "Error de verificación"; toast("Tribuna Segura rechazó la verificación", "bad"); }
+  else { ck.v = r; UI.ident[UI.cuenta] = { nombre: ck.nombre, dni: ck.dni }; }
+  pintarCompra();
+}
+async function pagar() {
+  const ck = UI.ck, e = ckEvento(), v = ck.v;
+  const base = { cuenta: UI.cuenta, compromiso: v.compromiso, firma: v.firma, montoAlterado: ck.atk.monto };
+  const r = ck.modo === "primaria"
+    ? await ejecutar({ titulo: `Comprar entrada · ${e.nombre}`, ruta: "comprar", cuerpo: { ...base, idEvento: e.idEvento }, fn: "EventManager.comprarEntrada()", firmante: yo().nombre, exito: (x) => x.carga ? `<div class="box small">Antes se cargó saldo de prueba a tu billetera: ${linkTx(x.carga)}</div>` : "" })
+    : await ejecutar({ titulo: `Comprar en reventa · ${e.nombre}`, ruta: "reventa/comprar", cuerpo: { ...base, idPublicacion: ck.id }, fn: "ReventaMarketplace.revenderEntrada()", firmante: yo().nombre });
+  if (!r || UI.ck !== ck) return;
+  if (r.ok) { ck.r = r; ck.paso = 4; UI.expl = "resultado"; UI.sel = ck.modo === "primaria" ? r.tokenId : ckPub()?.tokenId; }
+  pintarCompra(); pintar();
+}
+
+/* ------------------------------------------------------------------ revender, P2P, QR */
+function abrirReventa(tokenId) {
+  const t = App.entrada(tokenId), e = App.evento(t.idEvento);
+  const max = (big(t.precioOriginal) * BigInt(10000 + e.topeBps)) / 10000n;
+  const sug = (big(t.precioOriginal) * 115n) / 100n;
+  UI.expl = "publicar"; UI.sel = tokenId; pintarRiel();
+  abrirModal(`<div class="modal"><div class="modal-head"><div><span class="chip">Reventa oficial</span><h2 style="margin-top:4px">Revender la entrada #${tokenId}</h2><p class="muted small">${esc(e.nombre)}</p></div><button class="btn ghost sm x" type="button" data-cerrar>Cerrar</button></div>
+    <div class="modal-body">
+      <div class="field"><label for="rv_precio">Precio de venta</label><div class="suffix"><input class="input" id="rv_precio" inputmode="decimal" value="${formatEther(sug, 18).replace(/\./g, "").replace(",", ".")}" data-token="${tokenId}"><span>${App.cfg.moneda}</span></div><span class="err" id="rv_err"></span><span class="hint">Tope permitido: <b>${monto(max)}</b> (original ${monto(t.precioOriginal)} + ${pct(e.topeBps)})</span></div>
+      <div class="box" id="rv_reparto"></div>
+    </div>
+    <div class="modal-foot"><button class="btn" type="button" data-cerrar>Cancelar</button><button class="btn primary" type="button" id="rv_ok" data-token="${tokenId}">Publicar</button></div></div>`);
+  revisarReventa();
+}
+function revisarReventa() {
+  const inp = $("#rv_precio"); if (!inp) return;
+  const t = App.entrada(Number(inp.dataset.token)), e = App.evento(t.idEvento);
+  const max = (big(t.precioOriginal) * BigInt(10000 + e.topeBps)) / 10000n;
+  const p = parseEther(inp.value), btn = $("#rv_ok");
+  if (p === null || p === 0n) { $("#rv_err").textContent = "Ingresá un precio mayor a 0."; btn.disabled = true; $("#rv_reparto").innerHTML = ""; return; }
+  btn.disabled = false;
+  const sobre = p > max;
+  $("#rv_err").innerHTML = sobre ? `Supera el tope por ${monto(p - max)}. El contrato va a rechazarla con <span class="mono">PrecioSuperaTope</span>.` : "";
+  btn.className = "btn " + (sobre ? "redsend" : "primary");
+  btn.textContent = sobre ? "Publicar igual (sobreprecio)" : "Publicar";
+  const reg = (p * BigInt(e.regaliaBps)) / 10000n, com = (p * BigInt(e.comisionBps)) / 10000n;
+  $("#rv_reparto").innerHTML = `<b>Si se vende a ${monto(p)}</b><div class="kv small"><div><span>Artista (${pct(e.regaliaBps)})</span><b>${monto(reg)}</b></div><div><span>Ticketera (${pct(e.comisionBps)})</span><b>${monto(com)}</b></div><div class="total"><span>Recibís</span><b>${monto(p - reg - com)}</b></div></div>`;
+}
+function abrirP2P(tokenId) {
+  UI.expl = "p2p"; UI.sel = tokenId; pintarRiel();
+  const o = otro();
+  abrirModal(`<div class="modal"><div class="modal-head"><div><span class="chip" style="color:var(--bad)">Prueba de ataque</span><h2 style="margin-top:4px">Pasar la entrada por fuera</h2><p class="muted small">Como en el mercado negro: se la mandás directo a otra persona.</p></div><button class="btn ghost sm x" type="button" data-cerrar>Cerrar</button></div>
+    <div class="modal-body">
+      <div class="kv"><div><span>Para</span><b>${esc(o.nombre)} · <span class="mono">${short(o.address)}</span></b></div></div>
+      <div class="field"><label for="p2p_m">Cómo</label><select class="input" id="p2p_m"><option value="transferFrom">transferFrom · se la paso directo</option><option value="approve">approve · autorizo a un sitio de reventa externo</option></select></div>
+    </div>
+    <div class="modal-foot"><button class="btn" type="button" data-cerrar>Cancelar</button><button class="btn redsend" type="button" id="p2p_ok" data-token="${tokenId}">Intentar</button></div></div>`);
+}
+async function abrirQR(tokenId) {
+  UI.expl = "qr"; UI.sel = tokenId; pintarRiel();
+  UI.qr = { tokenId, datos: null, recibido: 0 };
+  await renovarQR();
+}
+async function renovarQR() {
+  const q = UI.qr; if (!q) return;
+  q.renovando = true;
+  const r = await App.post("qr", { cuenta: UI.cuenta, tokenId: q.tokenId });
+  q.renovando = false;
+  if (!r.ok) { toast(r.error?.mensaje || "No se pudo generar el QR", "bad"); return; }
+  q.datos = r.qr; q.recibido = Date.now();
+  pintarQR(); App.refrescar();
+}
+function pintarQR() {
+  const q = UI.qr; if (!q || !q.datos) return;
+  const t = App.entrada(q.tokenId), e = App.evento(t.idEvento);
+  const qq = qrcode(0, "M"); qq.addData(JSON.stringify(q.datos)); qq.make();
+  abrirModal(`<div class="modal wide"><div class="modal-head"><div><span class="chip">Ingreso</span><h2 style="margin-top:4px">Entrada #${q.tokenId} · ${esc(e.nombre)}</h2></div><button class="btn ghost sm x" type="button" data-qrcerrar>Cerrar</button></div>
+    <div class="modal-body"><div class="qr-wrap">
+      <div class="qr" id="qrBox">${qq.createSvgTag({ cellSize: 4, margin: 2, scalable: true })}</div>
+      <div class="list" style="gap:10px;min-width:0">
+        <div><span class="muted small">Válido por</span><div class="count" id="qrCount">60 s</div><div class="bar" style="margin-top:6px"><i id="qrBar" style="width:100%"></i></div></div>
+        <p class="muted small">Mostralo en la puerta. Se renueva solo cada 30 segundos y cada versión está firmada por tu billetera, así que una captura de pantalla vieja no sirve.</p>
+        <div class="kv small"><div><span>timestamp</span><b class="mono">${q.datos.timestamp}</b></div><div><span>firma</span><b class="mono">${shortH(q.datos.firma)}</b></div></div>
+        <div class="row"><button class="btn sm" type="button" id="qrRenovar">Renovar ahora</button><button class="btn sm ghost" type="button" id="qrCopiar">Copiar contenido</button></div>
+      </div></div></div></div>`);
+  tickQR();
+}
+function tickQR() {
+  const q = UI.qr; if (!q || !$("#qrCount")) return;
+  const edad = (Date.now() - q.recibido) / 1000, resta = Math.max(0, Math.ceil(App.cfg.ventanaQR - edad));
+  $("#qrCount").textContent = resta + " s";
+  $("#qrBar").style.width = (resta / App.cfg.ventanaQR) * 100 + "%";
+  $("#qrBox").classList.toggle("vencido", resta <= 0);
+  const t = App.entrada(q.tokenId);
+  if (edad >= 30 && !q.renovando && t?.estadoEfectivo === "Asignada" && !q.pausado) renovarQR();
+}
+setInterval(tickQR, 1000);
+
+/* ------------------------------------------------------------------ render */
+function pintarCabecera() {
+  $("#chipRed").innerHTML = chipRed() + (App.modo === "simulada" ? ` <button class="btn ghost sm" type="button" id="reiniciarSim">Reiniciar simulación</button>` : "");
+  const s = App.saldo(yo().address);
+  $("#quien").innerHTML = `${avatar(yo().nombre, ACTOR_COLOR[UI.cuenta])}<span><select id="cuenta" aria-label="Cuenta">${App.cfg.compradores.map((c) => `<option value="${c.id}" ${c.id === UI.cuenta ? "selected" : ""}>${esc(c.nombre)}</option>`).join("")}</select><span class="sub" style="display:block"><span class="mono">${short(yo().address)}</span> · ${monto(s.balance, 3)}</span></span>`;
+  const n = misEntradas().length, pubs = App.est.publicaciones.filter((p) => p.estado === "Activa").length;
+  $("#tabs").innerHTML = TABS.map(([id, l]) => `<button class="tab" role="tab" type="button" aria-selected="${UI.tab === id}" data-tab="${id}">${l}${id === "entradas" && n ? `<span class="count">${n}</span>` : id === "reventa" && pubs ? `<span class="count">${pubs}</span>` : ""}</button>`).join("");
+}
+function pintarRiel() {
+  $("#explica").innerHTML = explicaHTML(EXPLICA[UI.expl || UI.tab]);
+  const t = UI.sel ? App.entrada(UI.sel) : misEntradas()[0];
+  $("#railTid").innerHTML = t ? `<span class="chip">#${t.tokenId}</span>` : "";
+  $("#railEntrada").innerHTML = t ? `${smEntrada(t)}<div class="kv small" style="margin-top:8px"><div><span>Titular</span><b>${esc(App.quien(t.titular))}</b></div><div><span>Estado efectivo</span><b>${esc(t.estadoEfectivo)}</b></div></div>` : `<p class="muted small">Cuando compres una entrada, vas a ver acá cómo cambia de estado.</p>`;
+  $("#railBloque").textContent = `bloque ${Number(App.est.bloque).toLocaleString("es-AR")}`;
+  const a = lc(yo().address);
+  $("#feed").innerHTML = feedHTML((tx) => tx.actor === UI.cuenta || (tx.eventos || []).some((e) => Object.values(e.args || {}).some((v) => lc(v) === a)));
+}
+const VISTAS = { cartelera: vistaCartelera, entradas: vistaEntradas, reventa: vistaReventa, saldo: vistaSaldo };
+function pintar() {
+  pintarCabecera(); pintarRiel();
+  $("#main").innerHTML = VISTAS[UI.tab]();
+}
+function irTab(id) { UI.tab = id; UI.expl = null; try { history.replaceState(null, "", "#" + id); } catch (_) {} pintar(); }
+
+/* ------------------------------------------------------------------ eventos */
+document.addEventListener("click", async (ev) => {
+  const sel = ev.target.closest("[data-sel]");
+  const b = ev.target.closest("button");
+  if (sel && !b) { UI.sel = Number(sel.dataset.sel); $$(".ticket").forEach((x) => x.classList.toggle("sel", x.querySelector("[data-sel]")?.dataset.sel === sel.dataset.sel)); return pintarRiel(); }
+  if (!b) return;
+  const d = b.dataset;
+  if (d.tab) { cerrarModal(); UI.ck = null; return irTab(d.tab); }
+  if (d.comprar) return abrirCompra("primaria", d.comprar);
+  if (d.comprarpub) return abrirCompra("reventa", Number(d.comprarpub));
+  if (d.ck === "cerrar") { UI.ck = null; UI.expl = null; cerrarModal(); return pintarRiel(); }
+  if (d.ck === "ver") { UI.ck = null; cerrarModal(); return irTab("entradas"); }
+  if (d.ck === "verificar") return verificar();
+  if (d.ck === "atras") { UI.ck.paso -= 1; UI.expl = ["identidad", "verificacion", "pago"][UI.ck.paso - 1]; pintarRiel(); return pintarCompra(); }
+  if (d.ck === "pago") { UI.ck.paso = 3; UI.expl = "pago"; pintarRiel(); return pintarCompra(); }
+  if (d.ck === "pagar") return pagar();
+  if (d.cerrar !== undefined) { cerrarModal(); UI.expl = null; return pintarRiel(); }
+  if (d.qrcerrar !== undefined) { UI.qr = null; cerrarModal(); UI.expl = null; return pintarRiel(); }
+  if (d.qr) return abrirQR(Number(d.qr));
+  if (b.id === "qrRenovar") return renovarQR();
+  if (b.id === "qrCopiar") { const txt = JSON.stringify(UI.qr.datos); try { await navigator.clipboard.writeText(txt); toast("Contenido del QR copiado. Pegalo en la puerta para probar una captura vieja.", ""); } catch (_) { toast("No se pudo copiar automáticamente.", "bad"); } return; }
+  if (d.revender) return abrirReventa(Number(d.revender));
+  if (b.id === "rv_ok") {
+    const tokenId = Number(d.token), precio = $("#rv_precio").value.replace(",", ".");
+    cerrarModal();
+    await ejecutar({ titulo: `Publicar la entrada #${tokenId} en reventa`, ruta: "reventa/publicar", cuerpo: { cuenta: UI.cuenta, tokenId, precio }, fn: "ReventaMarketplace.publicarReventa()", firmante: yo().nombre });
+    return pintar();
+  }
+  if (d.p2p) return abrirP2P(Number(d.p2p));
+  if (b.id === "p2p_ok") {
+    const tokenId = Number(d.token), metodo = $("#p2p_m").value;
+    cerrarModal();
+    await ejecutar({ titulo: `Pasar la entrada #${tokenId} a ${otro().nombre}`, ruta: "transferir", cuerpo: { cuenta: UI.cuenta, tokenId, destino: otro().id, metodo }, fn: `EntradaNFT.${metodo}()`, firmante: yo().nombre });
+    return pintar();
+  }
+  if (d.retirarpub) { UI.expl = "publicar"; await ejecutar({ titulo: "Retirar la entrada de la reventa", ruta: "reventa/retirar", cuerpo: { cuenta: UI.cuenta, idPublicacion: Number(d.retirarpub) }, fn: "ReventaMarketplace.retirarPublicacion()", firmante: yo().nombre }); return pintar(); }
+  if (d.reembolso) { UI.expl = "reembolso"; UI.sel = Number(d.reembolso); pintarRiel(); await ejecutar({ titulo: `Reembolso de la entrada #${d.reembolso}`, ruta: "reembolso", cuerpo: { cuenta: UI.cuenta, tokenId: Number(d.reembolso) }, fn: "EventManager.reclamarReembolso()", firmante: yo().nombre }); return pintar(); }
+  if (b.id === "retirar") { await ejecutar({ titulo: "Retirar mi saldo", ruta: "retirar", cuerpo: { cuenta: UI.cuenta }, fn: "EventManager.retirarFondos()", firmante: yo().nombre }); return pintar(); }
+  if (b.id === "reiniciarSim") { Simulador.reiniciar(); UI.sel = null; await App.refrescar(); return irTab("cartelera"); }
+});
+document.addEventListener("input", (ev) => {
+  const t = ev.target;
+  if (t.id === "ck_nombre" || t.id === "ck_dni") {
+    if (t.id === "ck_dni") t.value = t.value.replace(/\D/g, "");
+    UI.ck[t.id === "ck_dni" ? "dni" : "nombre"] = t.value;
+    const ok = /^[1-9]\d{6,7}$/.test(UI.ck.dni) && UI.ck.nombre.trim().length >= 3;
+    $("[data-ck=verificar]").disabled = !ok;
+    t.classList.toggle("bad", t.id === "ck_dni" ? !/^[1-9]\d{6,7}$/.test(t.value) : t.value.trim().length < 3);
+    t.parentElement.querySelector(".err").textContent = t.classList.contains("bad") ? (t.id === "ck_dni" ? "7 u 8 dígitos, sin puntos." : "Mínimo 3 caracteres.") : "";
+  }
+  if (t.id === "rv_precio") revisarReventa();
+});
+document.addEventListener("change", (ev) => {
+  const t = ev.target;
+  if (t.id === "cuenta") { UI.cuenta = t.value; UI.sel = null; cerrarModal(); UI.ck = null; UI.qr = null; return pintar(); }
+  if (t.id === "atk_firma") { UI.ck.atk.firma = t.checked; return verificar(); }
+  if (t.id === "atk_monto") { UI.ck.atk.monto = t.checked; return pintarCompra(); }
+});
+
+montarRiel();
+App.iniciar(() => { if (App.cfg) { pintarCabecera(); pintarRiel(); if (!$("#main .loading") && !document.activeElement?.closest?.("#main")) $("#main").innerHTML = VISTAS[UI.tab](); } }).then(() => {
+  const h = location.hash.slice(1);
+  if (VISTAS[h]) UI.tab = h;
+  pintar();
+}).catch((e) => { $("#main").innerHTML = `<div class="empty">No se pudo iniciar: ${esc(e.message)}</div>`; });
+</script>
+</body>
+</html>

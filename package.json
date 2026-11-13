@@ -12,7 +12,10 @@
     "deploy:local": "hardhat run scripts/deploy-red.js --network localhost",
     "demo:local": "hardhat run scripts/demo-red.js --network localhost",
     "deploy:amoy": "hardhat run scripts/deploy-red.js --network amoy",
-    "demo:amoy": "hardhat run scripts/demo-red.js --network amoy"
+    "demo:amoy": "hardhat run scripts/demo-red.js --network amoy",
+    "interfaz": "hardhat run interfaz/servidor.js",
+    "interfaz:local": "hardhat run interfaz/servidor.js --network localhost",
+    "interfaz:amoy": "hardhat run interfaz/servidor.js --network amoy"
   },
   "author": "Chas Díaz, Tombesi, Villegas, Rottino",
   "license": "MIT",

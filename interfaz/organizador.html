@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<title>e-TicketEvento · Organizadores</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<link rel="stylesheet" href="comun.css">
+</head>
+<body>
+<header class="topbar">
+  <a class="brand" href="index.html"><span class="brand-mark">eT</span><span><b>e-TicketEvento</b><small>Panel de organizadores</small></span></a>
+  <span id="chipRed"></span>
+  <span class="who" id="quien"></span>
+  <label class="switch"><input type="checkbox" id="toggleRiel"> Mostrar blockchain</label>
+</header>
+
+<div class="page with-steps">
+  <nav class="steps-nav" id="pasos" aria-label="Pasos"></nav>
+  <main id="main"><div class="loading">Conectando con la red…</div></main>
+  <aside class="rail" aria-label="En la blockchain">
+    <div class="panel"><h3>Qué pasa en la blockchain</h3><div id="explica"></div></div>
+    <div class="panel"><h3>Estado del evento <span id="railEvId"></span></h3><div id="railEvento"></div></div>
+    <div class="panel"><h3>Transacciones <span class="chip" id="railBloque"></span></h3><div class="feed" id="feed"></div></div>
+  </aside>
+</div>
+<div id="modal"></div><div id="modalTop"></div><div id="toasts" aria-live="polite"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+<script src="simulador.js"></script>
+<script src="comun.js"></script>
+<script>
+"use strict";
+const PASOS = [
+  { id: "billetera", grupo: "Preparar", t: "Billetera y permisos", s: "Quién firma" },
+  { id: "evento", grupo: "Crear el evento", t: "Datos del evento", s: "Nombre, fecha, lugar" },
+  { id: "reglas", t: "Precio y reventa", s: "Reglas comerciales" },
+  { id: "publicar", t: "Revisar y publicar", s: "crearEvento()" },
+  { id: "ventas", grupo: "Operar", t: "Ventas en vivo", s: "Entradas emitidas" },
+  { id: "puerta", t: "Control de acceso", s: "Escanear QR" },
+  { id: "cierre", t: "Cierre y liquidación", s: "Oráculo y fondos" },
+];
+const EXPLICA = {
+  billetera: { titulo: "La billetera del organizador firma todo", fn: "AccessControl.hasRole(rol, cuenta)", texto: "Los contratos no confían en usuarios y contraseñas: cada función revisa qué <b>rol</b> tiene la dirección que firmó la transacción. Para la demo, la billetera del organizador concentra los roles operativos.", rotulo: "Roles que se consultan en la red", puntos: ["<span class='mono'>ORGANIZADOR_ROLE</span>: crear eventos", "<span class='mono'>ORACULO_ROLE</span>: cancelar o cerrar un evento", "<span class='mono'>VERIFICADOR_ROLE</span>: firmar identidades (Tribuna Segura)", "<span class='mono'>VALIDADOR_ROLE</span>: validar ingresos en la puerta"] },
+  evento: { titulo: "Los datos del evento quedan en la cadena", fn: "EventManager.eventos[idEvento]", texto: "Todavía no se envía nada. Estos datos van a formar parte de la transacción <span class='mono'>crearEvento</span> y quedan públicos e inmutables.", puntos: ["El ID no puede estar usado: <span class='mono'>EventoYaExiste</span>", "La fecha tiene que ser futura según la hora del bloque: <span class='mono'>FechaInvalida</span>", "La capacidad tiene que ser mayor a 0: <span class='mono'>CapacidadInvalida</span>"] },
+  reglas: { titulo: "Las reglas comerciales se vuelven código", fn: "ERC-2981 royaltyInfo · topeReventaBps", texto: "El tope de reventa, la regalía del artista y la comisión de la ticketera se guardan en <b>puntos básicos</b> (1 % = 100 bps). Nadie puede saltearlas después: el marketplace las aplica en cada reventa.", puntos: ["Precio mayor a 0: <span class='mono'>PrecioInvalido</span>", "Regalía + comisión &lt; 100 %: <span class='mono'>SumaPorcentajesInvalida</span>", "Al menos 1 entrada por persona: <span class='mono'>LimitePorPersonaInvalido</span>"] },
+  publicar: { titulo: "Se envía crearEvento()", fn: "EventManager.crearEvento(…15 parámetros)", texto: "Al confirmar, la billetera del organizador firma la transacción y se envía a la red. Si alguna regla no se cumple, el contrato la rechaza antes de que gaste gas.", puntos: ["Primero <span class='mono'>onlyRole(ORGANIZADOR_ROLE)</span>", "Después las validaciones en orden", "Emite el evento <span class='mono'>EventoCreado</span>"], estado: "El evento nace en <b>Programado</b> con 0 entradas vendidas y 0 en custodia." },
+  ventas: { titulo: "Lazy minting: cada compra acuña un NFT", fn: "EventManager.comprarEntrada → EntradaNFT.mint", texto: "No se emiten entradas por adelantado. Cada compra crea el NFT para el comprador y el pago queda en <b>custodia</b> (escrow) dentro del contrato hasta que el evento se realice.", puntos: ["Precio exacto: <span class='mono'>MontoIncorrecto</span>", "Firma de Tribuna Segura: <span class='mono'>FirmaInvalida</span>", "Máximo por DNI: <span class='mono'>LimitePorPersonaExcedido</span>"] },
+  puerta: { titulo: "QR dinámico firmado por el titular", fn: "EntradaNFT.validarIngreso(tokenId, compromiso, timestamp, firma)", texto: "El QR que muestra el fan contiene una firma EIP-712 de su billetera con la hora del bloque. El molinete la envía al contrato, que la valida y marca la entrada como usada.", puntos: ["Que la entrada esté Asignada", "Que la identidad (compromiso) coincida", "Que el QR tenga menos de 60 s: <span class='mono'>QRExpirado</span>", "Que lo haya firmado el titular actual: <span class='mono'>FirmaInvalida</span>"], estado: "Asignada → <b>Utilizada</b>. Un segundo intento devuelve <span class='mono'>EntradaNoValidaParaIngreso</span>." },
+  cierre: { titulo: "El oráculo decide el final del evento", fn: "cancelarEvento · cerrarEvento · retirarFondos", texto: "Un oráculo imparcial informa qué pasó. Si se cancela, cada fan reclama el 100 % (reembolso pull). Si se realizó, 24 h después se libera la custodia al organizador.", puntos: ["Cancelar solo antes de la fecha: <span class='mono'>FueraDeTermino</span>", "Cerrar solo después de fecha + 24 h", "Retirar requiere saldo: <span class='mono'>SinSaldo</span>"], estado: "Programado → <b>Cancelado</b> o <b>Finalizado</b>. Las entradas sin usar pasan a <b>Vencida</b>." },
+};
+
+const UI = { paso: "billetera", draft: null, sel: null, puerta: null, pegado: "" };
+
+/* ------------------------------------------------------------------ borrador y validación */
+function borradorInicial() {
+  const ids = (App.est.eventos || []).map((e) => Number(e.idEvento)).filter(Number.isFinite);
+  const max = ids.length ? Math.max(...ids) : 0;
+  const d = new Date((App.est.ahora + 14 * 86400) * 1000); d.setHours(21, 0, 0, 0);
+  const p = (n) => String(n).padStart(2, "0");
+  return {
+    idEvento: String(max >= 1e9 ? max + 1 : max + 1), nombre: "Sierras Sónicas — Noche de cierre", tipo: "Recital",
+    fecha: `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}`, lugar: "Estadio Mario A. Kempes, Córdoba", capacidad: "5000",
+    precio: App.cfg.precioSugerido, tope: "20", regalia: "10", comision: "5", limite: "2", maxTr: "2", admision: false,
+  };
+}
+function validar(d) {
+  const fmt = {}, regla = {};
+  const n = (v) => (String(v).trim() === "" ? NaN : Number(String(v).replace(",", ".")));
+  if (!/^\d+$/.test(d.idEvento) || BigInt(d.idEvento || 0) < 1n) fmt.idEvento = "Entero ≥ 1.";
+  else if (App.evento(d.idEvento)) regla.idEvento = "EventoYaExiste";
+  if (!d.nombre.trim()) fmt.nombre = "Escribí el nombre del evento.";
+  if (!d.lugar.trim()) fmt.lugar = "Indicá el lugar.";
+  const ts = d.fecha ? Math.floor(new Date(d.fecha).getTime() / 1000) : NaN;
+  if (!Number.isFinite(ts)) fmt.fecha = "Elegí fecha y hora.";
+  else if (ts <= App.est.ahora) regla.fecha = "FechaInvalida";
+  if (!/^\d+$/.test(d.capacidad)) fmt.capacidad = "Entero sin puntos.";
+  else if (Number(d.capacidad) === 0) regla.capacidad = "CapacidadInvalida";
+  else if (Number(d.capacidad) > 4294967295) fmt.capacidad = "Máximo 4.294.967.295 (uint32).";
+  const precio = parseEther(d.precio);
+  if (precio === null) fmt.precio = "Número con hasta 18 decimales (ej. 0.01).";
+  else if (precio === 0n) regla.precio = "PrecioInvalido";
+  const bps = (k, max) => { const v = n(d[k]); if (!Number.isFinite(v) || v < 0 || v > max) { fmt[k] = `Entre 0 y ${max} %.`; return null; } return Math.round(v * 100); };
+  const tope = bps("tope", 655), regalia = bps("regalia", 100), comision = bps("comision", 100);
+  if (regalia != null && comision != null && regalia + comision >= 10000) regla.comision = "SumaPorcentajesInvalida";
+  if (!/^\d+$/.test(d.limite) || Number(d.limite) > 255) fmt.limite = "Entero entre 1 y 255.";
+  else if (Number(d.limite) === 0) regla.limite = "LimitePorPersonaInvalido";
+  if (!/^\d+$/.test(d.maxTr) || Number(d.maxTr) > 255) fmt.maxTr = "Entero entre 0 y 255.";
+  const orden = ["EventoYaExiste", "FechaInvalida", "CapacidadInvalida", "PrecioInvalido", "SumaPorcentajesInvalida", "LimitePorPersonaInvalido"];
+  let primero = orden.find((x) => Object.values(regla).includes(x)) || null;
+  if (!App.cfg.organizador.roles.ORGANIZADOR_ROLE) primero = "AccessControlUnauthorizedAccount";
+  return { fmt, regla, primero, ts, precio, tope, regalia, comision };
+}
+const CAMPOS_PASO = { evento: ["idEvento", "nombre", "fecha", "lugar", "capacidad"], reglas: ["precio", "tope", "regalia", "comision", "limite", "maxTr"] };
+
+/* ------------------------------------------------------------------ vistas */
+function vistaBilletera() {
+  const c = App.cfg, s = App.saldo(c.organizador.address);
+  const roles = Object.entries(c.organizador.roles).map(([r, ok]) => `<div class="rule"><span class="ic" style="${ok ? "" : "background:var(--bad-soft);color:var(--bad)"}">${ok ? "✓" : "✗"}</span><span class="mono">${r}<small style="font-family:var(--f-body)">${{ ORGANIZADOR_ROLE: "Crear eventos", ORACULO_ROLE: "Cancelar y cerrar eventos", VERIFICADOR_ROLE: "Firmar identidades (Tribuna Segura)", VALIDADOR_ROLE: "Validar ingresos en la puerta" }[r]}</small></span><b>${ok ? "Sí" : "No"}</b></div>`).join("");
+  const evs = App.est.eventos.slice().sort((a, b) => a.fechaHora - b.fechaHora);
+  return `
+  <div class="view-head"><span class="eyebrow">Paso 1</span><h1>Tu billetera de organizador</h1><p>Con esta billetera vas a firmar la creación del evento. Los permisos se leen directamente de los contratos en ${esc(App.nombreRed())}.</p></div>
+  <div class="grid-2">
+    <div class="card list">
+      <div class="row">${avatar("Productora", ACTOR_COLOR.organizador)}<div><b>Productora (admin)</b><div class="small">${App.linkDir(c.organizador.address)}</div></div></div>
+      <div class="stats"><div class="stat"><small>Saldo en billetera</small><b>${formatEther(s.balance, 4)}</b><span class="muted small">${c.moneda}</span></div><div class="stat"><small>Para retirar</small><b>${formatEther(s.pendiente, 4)}</b><span class="muted small">${c.moneda} en EventManager</span></div></div>
+    </div>
+    <div class="card"><h3 style="margin-bottom:6px">Permisos en los contratos</h3><div class="rules">${roles}</div></div>
+  </div>
+  <div class="card list" style="gap:8px"><h3>Contratos</h3><div class="kv small">${Object.entries(c.contratos).map(([k, v]) => `<div><span>${k}</span><b>${App.linkDir(v)}</b></div>`).join("")}</div></div>
+  <div class="row between"><h2>Tus eventos</h2><button class="btn primary lg" type="button" data-paso="evento">Crear un evento nuevo →</button></div>
+  ${evs.length ? `<div class="tbl-wrap"><table><thead><tr><th>Evento</th><th>Fecha</th><th>Estado</th><th>Vendidas</th><th></th></tr></thead><tbody>${evs.map((e) => `<tr><td><b>${esc(e.nombre)}</b><br><span class="muted small">#${esc(e.idEvento)} · ${esc(e.lugar)}</span></td><td class="num">${fFecha(e.fechaHora)}</td><td>${estadoPill(e.estado)}</td><td class="num">${e.vendidas} / ${e.capacidad}</td><td><button class="btn sm" type="button" data-ver="${esc(e.idEvento)}">Ver ventas</button></td></tr>`).join("")}</tbody></table></div>` : `<div class="empty">Todavía no creaste eventos con esta billetera.</div>`}`;
+}
+
+function campo(id, label, input, hint) { return `<div class="field ${id === "nombre" || id === "lugar" ? "full" : ""}"><label for="f_${id}">${label}</label>${input}<span class="err" data-err="${id}"></span>${hint ? `<span class="hint">${hint}</span>` : ""}</div>`; }
+const inp = (id, extra = "") => `<input class="input" id="f_${id}" value="${esc(UI.draft[id])}" ${extra}>`;
+const suf = (id, s) => `<div class="suffix">${inp(id, 'inputmode="decimal"')}<span>${s}</span></div>`;
+
+function vistaEvento() {
+  const d = UI.draft;
+  return `
+  <div class="view-head"><span class="eyebrow">Paso 2 de 4 · Crear el evento</span><h1>¿Qué evento vas a vender?</h1><p>Completá los datos públicos del evento. Se validan en vivo con las mismas reglas que aplica el contrato.</p></div>
+  <form class="card list" id="form" novalidate style="gap:16px">
+    <div class="field"><label>Tipo de evento</label><div class="choice">
+      ${[["Recital", "Música en vivo"], ["Espectaculo", "Teatro, stand-up"], ["Futbol", "Partido con Tribuna Segura"]].map(([v, s]) => `<label><input type="radio" name="tipo" value="${v}" ${d.tipo === v ? "checked" : ""}><b>${TIPO_LABEL[v]}</b><small>${s}</small></label>`).join("")}
+    </div></div>
+    <div class="fieldset">
+      ${campo("nombre", "Nombre del evento", inp("nombre", 'maxlength="90"'))}
+      ${campo("fecha", "Fecha y hora", `<input class="input" id="f_fecha" type="datetime-local" value="${esc(d.fecha)}">`, "Tiene que ser posterior a la hora actual de la red")}
+      ${campo("capacidad", "Capacidad", inp("capacidad", 'inputmode="numeric"'), "Total de entradas a la venta")}
+      ${campo("lugar", "Lugar", inp("lugar"))}
+      ${campo("idEvento", "ID del evento", inp("idEvento", 'inputmode="numeric"'), "Identificador único en el contrato (uint256)")}
+    </div>
+    <div class="form-foot"><button class="btn" type="button" data-paso="billetera">← Atrás</button><button class="btn primary lg" type="button" data-paso="reglas" id="sig">Continuar: precio y reventa →</button></div>
+  </form>`;
+}
+function vistaReglas() {
+  const d = UI.draft, c = App.cfg;
+  return `
+  <div class="view-head"><span class="eyebrow">Paso 3 de 4 · Crear el evento</span><h1>Precio y reglas de reventa</h1><p>Estas reglas quedan grabadas en el contrato. El marketplace oficial las va a aplicar solo en cada reventa, sin intermediarios.</p></div>
+  <form class="card list" id="form" novalidate style="gap:16px">
+    <div class="fieldset">
+      ${campo("precio", "Precio de la entrada", suf("precio", c.moneda), "Se cobra el monto exacto")}
+      ${campo("tope", "Tope de reventa", suf("tope", "%"), "Máximo por encima del precio original (Ley CABA 5174)")}
+      ${campo("regalia", "Regalía del artista", suf("regalia", "%"), "Se paga en cada reventa (ERC-2981)")}
+      ${campo("comision", "Comisión de la ticketera", suf("comision", "%"), "Se cobra en cada reventa")}
+      ${campo("limite", "Entradas por persona", inp("limite", 'inputmode="numeric"'), "Se controla por DNI, no por billetera")}
+      ${campo("maxTr", "Reventas máximas por entrada", inp("maxTr", 'inputmode="numeric"'))}
+      <label class="check full" for="f_admision"><input type="checkbox" id="f_admision" ${d.admision ? "checked" : ""}><span><b>Exigir derecho de admisión (Tribuna Segura)</b><br><span class="muted small">El verificador no firma la compra de DNIs con restricción vigente (Ley 23.184).</span></span></label>
+    </div>
+    <div class="box"><b>Beneficiarios de cada reventa</b><div class="kv small"><div><span>Artista</span><b>${App.linkDir(c.artista)}</b></div><div><span>Ticketera</span><b>${App.linkDir(c.plataforma)}</b></div></div></div>
+    <div class="box chain" id="ejemplo"></div>
+    <div class="form-foot"><button class="btn" type="button" data-paso="evento">← Atrás</button><button class="btn primary lg" type="button" data-paso="publicar" id="sig">Revisar y publicar →</button></div>
+  </form>`;
+}
+function reglasLista(v, d) {
+  const max = v.precio != null && v.tope != null ? (v.precio * BigInt(10000 + v.tope)) / 10000n : null;
+  const r = [
+    ["$", "Precio de la entrada", v.precio != null ? monto(v.precio) : "—", "Cobro exacto, queda en custodia"],
+    ["↑", "Reventa máxima", max != null ? monto(max) : "—", v.tope != null ? `Precio + ${pct(v.tope)}` : ""],
+    ["%", "Regalía del artista", v.regalia != null ? pct(v.regalia) : "—", "En cada reventa"],
+    ["%", "Comisión de la ticketera", v.comision != null ? pct(v.comision) : "—", "En cada reventa"],
+    ["ID", "Entradas por persona", d.limite, "Control por compromiso keccak256(DNI, salt)"],
+    ["↻", "Reventas por entrada", d.maxTr, "Después queda fija en su titular"],
+    ["✓", "Derecho de admisión", d.admision ? "Sí" : "No", "Verificación de Tribuna Segura"],
+    ["⏱", "Liberación de fondos", "fecha + 24 h", "La decide el oráculo"],
+  ];
+  return r.map(([ic, a, b, s]) => `<div class="rule"><span class="ic">${ic}</span><span>${a}<small>${esc(s)}</small></span><b>${esc(b)}</b></div>`).join("");
+}
+function vistaPublicar() {
+  const d = UI.draft, v = validar(d);
+  const nFmt = Object.keys(v.fmt).length;
+  const ev = { idEvento: d.idEvento, tipo: d.tipo, fechaHora: v.ts };
+  const args = [["idEvento", d.idEvento], ["nombre", d.nombre], ["tipoEvento", `${["Recital", "Espectaculo", "Futbol"].indexOf(d.tipo)} (${TIPO_LABEL[d.tipo]})`], ["fechaHora", v.ts], ["lugar", d.lugar], ["artista", short(App.cfg.artista)], ["plataformaTicketing", short(App.cfg.plataforma)], ["precioBase", v.precio != null ? v.precio.toString() + " wei" : "—"], ["capacidad", d.capacidad], ["topeReventaBps", v.tope], ["regaliaArtistaBps", v.regalia], ["comisionPlataformaBps", v.comision], ["limitePorPersona", d.limite], ["maxTransferencias", d.maxTr], ["requiereAdmision", d.admision]];
+  let boton = `<button class="btn primary lg block" type="button" id="publicar">Publicar el evento en la blockchain</button>`;
+  if (nFmt) boton = `<button class="btn lg block" type="button" disabled>Hay ${nFmt} campo(s) para corregir</button>`;
+  else if (v.primero) boton = `<button class="btn redsend lg block" type="button" id="publicar">Enviar igual · el contrato va a responder ${esc(v.primero)}</button>`;
+  return `
+  <div class="view-head"><span class="eyebrow">Paso 4 de 4 · Crear el evento</span><h1>Revisá y publicá</h1><p>Así lo van a ver los compradores. Al publicar, tu billetera firma la transacción <span class="mono">crearEvento</span>.</p></div>
+  <div class="grid-2">
+    <div class="list">
+      <div class="poster">${posterArt(ev)}<div class="body"><h3 style="font-size:1.15rem">${esc(d.nombre || "Sin nombre")}</h3><p class="muted">${esc(d.lugar)}</p><div class="row between"><span class="price">${v.precio != null ? monto(v.precio) : "—"}</span><span class="muted num">${Number(d.capacidad || 0).toLocaleString("es-AR")} lugares</span></div></div></div>
+      ${nFmt || v.primero ? `<div class="box ${nFmt ? "warn" : "bad"} small">${nFmt ? "Faltan datos o tienen formato inválido. Volvé al paso anterior para corregirlos." : `Una regla del contrato no se cumple (<span class="mono">${esc(v.primero)}</span>). Podés enviarla igual para mostrar el rechazo.`}</div>` : ""}
+      ${boton}
+      <div class="row"><button class="btn" type="button" data-paso="reglas">← Editar reglas</button><button class="btn ghost" type="button" data-paso="evento">Editar datos</button></div>
+    </div>
+    <div class="list">
+      <div class="card"><h3 style="margin-bottom:4px">Reglas que quedan grabadas</h3><div class="rules">${reglasLista(v, d)}</div></div>
+      <details class="card"><summary style="cursor:pointer;font-weight:700">Parámetros de la transacción</summary><div class="kv small" style="margin-top:10px">${args.map(([k, x]) => `<div><span class="mono">${k}</span><b class="mono">${esc(x)}</b></div>`).join("")}</div></details>
+    </div>
+  </div>`;
+}
+
+function selectorEvento() {
+  const evs = App.est.eventos;
+  if (!evs.length) return "";
+  return `<select class="input" id="selEvento" style="max-width:420px">${evs.map((e) => `<option value="${esc(e.idEvento)}" ${String(UI.sel) === String(e.idEvento) ? "selected" : ""}>#${esc(e.idEvento)} · ${esc(e.nombre)}</option>`).join("")}</select>`;
+}
+function sinEventos() { return `<div class="empty">Todavía no hay eventos.<button class="btn primary" type="button" data-paso="evento">Crear el primero</button></div>`; }
+
+function vistaVentas() {
+  const e = App.evento(UI.sel);
+  if (!e) return sinEventos();
+  const ts = App.est.entradas.filter((t) => String(t.idEvento) === String(e.idEvento));
+  const pubs = App.est.publicaciones.filter((p) => p.estado === "Activa" && ts.some((t) => t.tokenId === p.tokenId));
+  const usadas = ts.filter((t) => t.estadoEfectivo === "Utilizada").length;
+  return `
+  <div class="view-head"><span class="eyebrow">Ventas en vivo</span><div class="row between"><h1>${esc(e.nombre)}</h1>${selectorEvento()}</div><p>${fFecha(e.fechaHora)} · ${esc(e.lugar)} · ${estadoPill(e.estado)}</p></div>
+  <div class="card stats">
+    <div class="stat"><small>Vendidas</small><b>${e.vendidas.toLocaleString("es-AR")}<span class="muted" style="font-size:1rem"> / ${e.capacidad.toLocaleString("es-AR")}</span></b><div class="bar"><i style="width:${Math.min(100, (e.vendidas / e.capacidad) * 100)}%"></i></div></div>
+    <div class="stat"><small>En custodia</small><b>${formatEther(e.custodia, 4)}</b><span class="muted small">${App.cfg.moneda} · se libera al cerrar</span></div>
+    <div class="stat"><small>En reventa ahora</small><b>${pubs.length}</b><span class="muted small">publicaciones activas</span></div>
+    <div class="stat"><small>Ingresaron</small><b>${usadas}</b><span class="muted small">entradas utilizadas</span></div>
+  </div>
+  <div class="box chain small row between"><span>Para comprar entradas, abrí la interfaz del comprador en otra ventana. Las ventas aparecen acá solas.</span><a class="btn sm dark" href="comprador.html" target="_blank" rel="noopener">Abrir interfaz del comprador ↗</a></div>
+  <h2>Entradas emitidas</h2>
+  ${ts.length ? `<div class="tbl-wrap"><table><thead><tr><th>Entrada</th><th>Titular</th><th>Estado</th><th>Precio original</th><th>Reventas</th><th>Compromiso</th></tr></thead><tbody>${ts.map((t) => `<tr><td class="mono">#${t.tokenId}</td><td>${esc(App.quien(t.vendedor || t.titular))}${t.vendedor ? `<br><span class="muted small">publicada en reventa</span>` : ""}</td><td>${estadoPill(t.estadoEfectivo)}</td><td class="num">${monto(t.precioOriginal)}</td><td class="num">${t.cantTransferencias} / ${e.maxTransferencias}</td><td class="mono small">${shortH(t.compromiso)}</td></tr>`).join("")}</tbody></table></div>` : `<div class="empty">Todavía no se vendió ninguna entrada.</div>`}`;
+}
+
+function vistaPuerta() {
+  const e = App.evento(UI.sel);
+  if (!e) return sinEventos();
+  const r = UI.puerta;
+  let turn = `<div class="turnstile"><div class="big muted">Esperando QR</div><p class="muted">Escaneá un QR de la fila o pegá su contenido.</p></div>`;
+  if (r) turn = `<div class="turnstile ${r.ok ? "ok" : "bad"}"><div class="big">${r.ok ? "Adelante" : "No pasa"}</div><p>${r.ok ? `Entrada #${r.tokenId} validada en la red. Estado → Utilizada.` : `${esc(r.err)}() · ${esc(ERR_MSG[r.err] || "")}`}</p>${r.tx ? `<div class="small">${linkTx(r.tx)}</div>` : ""}</div>`;
+  return `
+  <div class="view-head"><span class="eyebrow">Control de acceso</span><div class="row between"><h1>Puerta 3 · ${esc(e.nombre)}</h1>${selectorEvento()}</div><p>El molinete envía el QR al contrato con la billetera del validador. Si el QR es una captura vieja, de otra billetera o de otra persona, el contrato lo rechaza.</p></div>
+  <div class="grid-2">
+    <div class="list">
+      <div class="card list" style="gap:10px"><div class="row between"><h3>Fila de ingreso</h3><span class="muted small">QRs que mostraron los fans</span></div><div class="list" style="gap:8px" id="fila">${filaHTML()}</div></div>
+      <div class="card list" style="gap:10px"><h3>Pegar contenido del QR</h3><textarea class="input mono" id="pegado" rows="4" spellcheck="false" placeholder='{"tokenId":1,"timestamp":…,"compromiso":"0x…","firma":"0x…"}'>${esc(UI.pegado)}</textarea><div><button class="btn primary" type="button" id="validarPegado">Validar ingreso</button></div></div>
+    </div>
+    ${turn}
+  </div>`;
+}
+function filaHTML() {
+  const e = App.evento(UI.sel);
+  const ids = new Set(App.est.entradas.filter((t) => e && String(t.idEvento) === String(e.idEvento)).map((t) => t.tokenId));
+  const fila = (App.est.qrs || []).filter((q) => ids.has(Number(q.tokenId))).slice(0, 8);
+  if (!fila.length) return `<div class="empty" style="padding:18px">Nadie mostró un QR todavía. En la interfaz del comprador: Mis entradas → Mostrar QR.</div>`;
+  return fila.map((q, i) => {
+    const edad = Math.round((Date.now() - q.generado) / 1000), vig = edad <= App.cfg.ventanaQR;
+    return `<div class="queue-item"><div><b>Entrada #${q.tokenId}</b> · ${esc(q.nombre)}<br><span class="muted small">firmado ${fHora(q.timestamp)} · hace ${Math.max(0, edad)} s</span> ${vig ? `<span class="pill p-ok">vigente</span>` : `<span class="pill p-bad">vencido</span>`}</div><button class="btn sm dark" type="button" data-escanear="${i}">Escanear</button></div>`;
+  }).join("");
+}
+async function validarIngreso(q) {
+  const r = await ejecutar({ titulo: `Validar ingreso de la entrada #${q.tokenId}`, ruta: "ingreso", cuerpo: { tokenId: q.tokenId, compromiso: q.compromiso, timestamp: q.timestamp, firma: q.firma }, fn: "EntradaNFT.validarIngreso()", firmante: "Validador (puerta)" });
+  if (!r) return;
+  UI.puerta = { ok: r.ok, tokenId: q.tokenId, err: r.ok ? null : r.error?.nombre, tx: r.tx };
+  pintar(true);
+}
+
+function vistaCierre() {
+  const e = App.evento(UI.sel);
+  if (!e) return sinEventos();
+  const ahora = App.est.ahora, cierre = e.fechaHora + App.cfg.margenCierre;
+  const s = App.saldo(App.cfg.organizador.address);
+  const prog = e.estado === "Programado";
+  return `
+  <div class="view-head"><span class="eyebrow">Cierre y liquidación</span><div class="row between"><h1>${esc(e.nombre)}</h1>${selectorEvento()}</div><p>Hora de la red: <b>${fFecha(ahora)}</b> · evento: ${fFecha(e.fechaHora)}</p></div>
+  <div class="card">${smEvento(e.estado)}</div>
+  <div class="grid-2">
+    <div class="card list">
+      <h3>Suspender el evento</h3>
+      <p class="muted small">El oráculo informa la cancelación. Los compradores pueden reclamar el 100 % desde su app. Solo se puede antes de la fecha del evento.</p>
+      <button class="btn danger" type="button" id="cancelar" ${prog ? "" : "disabled"}>Cancelar evento</button>
+    </div>
+    <div class="card list">
+      <h3>Cerrar y liquidar</h3>
+      <p class="muted small">Disponible desde <b>${fFecha(cierre)}</b> (fecha + 24 h). Libera ${monto(e.custodia)} al organizador.</p>
+      <div class="row"><button class="btn primary" type="button" id="cerrar" ${prog ? "" : "disabled"}>Cerrar evento</button>${App.cfg.esLocal && prog && ahora < cierre ? `<button class="btn" type="button" id="adelantar" title="Solo en redes de prueba locales">Adelantar el reloj de la red</button>` : ""}</div>
+      ${!App.cfg.esLocal && ahora < cierre ? `<span class="muted small">En Polygon Amoy no se puede adelantar el reloj: este paso se muestra en el nodo local.</span>` : ""}
+    </div>
+  </div>
+  <div class="card row between"><div class="stat"><small>Saldo para retirar</small><b>${monto(s.pendiente)}</b></div><button class="btn dark" type="button" id="retirar">Retirar fondos</button></div>`;
+}
+
+/* ------------------------------------------------------------------ render */
+function pintarPasos() {
+  const hecho = { billetera: true, evento: UI.draft && CAMPOS_PASO.evento.every((k) => !validar(UI.draft).fmt[k]), reglas: UI.draft && CAMPOS_PASO.reglas.every((k) => !validar(UI.draft).fmt[k]) };
+  let html = "";
+  PASOS.forEach((p, i) => {
+    if (p.grupo) html += `<div class="grp">${p.grupo}</div>`;
+    const necesitaEv = ["ventas", "puerta", "cierre"].includes(p.id) && !App.est.eventos.length;
+    html += `<button class="stepbtn ${UI.paso === p.id ? "cur" : ""} ${UI.paso !== p.id && hecho[p.id] && i < PASOS.findIndex((x) => x.id === UI.paso) ? "done" : ""}" type="button" data-paso="${p.id}" ${necesitaEv ? "disabled" : ""}><span class="n">${i + 1}</span><span><b>${p.t}</b><small>${p.s}</small></span></button>`;
+  });
+  $("#pasos").innerHTML = html;
+}
+function pintarRiel() {
+  $("#explica").innerHTML = explicaHTML(EXPLICA[UI.paso]);
+  const e = App.evento(UI.sel);
+  $("#railEvId").innerHTML = e ? `<span class="chip">#${esc(e.idEvento)}</span>` : "";
+  $("#railEvento").innerHTML = e ? `${smEvento(e.estado)}<div class="kv small" style="margin-top:8px"><div><span>Vendidas</span><b>${e.vendidas} / ${e.capacidad}</b></div><div><span>En custodia</span><b>${monto(e.custodia)}</b></div></div>` : `<p class="muted small">Cuando publiques un evento, vas a ver su estado acá.</p>`;
+  $("#railBloque").textContent = `bloque ${Number(App.est.bloque).toLocaleString("es-AR")}`;
+  $("#feed").innerHTML = feedHTML();
+}
+function pintarCabecera() {
+  $("#chipRed").innerHTML = chipRed() + (App.modo === "simulada" ? ` <button class="btn ghost sm" type="button" id="reiniciarSim">Reiniciar simulación</button>` : "");
+  const s = App.saldo(App.cfg.organizador.address);
+  $("#quien").innerHTML = `${avatar("Productora", ACTOR_COLOR.organizador)}<span><b>Productora (admin)</b><span class="sub"><span class="mono">${short(App.cfg.organizador.address)}</span> · ${monto(s.balance, 3)}</span></span>`;
+}
+const VISTAS = { billetera: vistaBilletera, evento: vistaEvento, reglas: vistaReglas, publicar: vistaPublicar, ventas: vistaVentas, puerta: vistaPuerta, cierre: vistaCierre };
+function pintar(completo) {
+  if (!UI.draft) UI.draft = borradorInicial();
+  if (!UI.sel && App.est.eventos.length) UI.sel = App.est.eventos[App.est.eventos.length - 1].idEvento;
+  pintarCabecera(); pintarPasos(); pintarRiel();
+  const formulario = UI.paso === "evento" || UI.paso === "reglas";
+  if (!completo && formulario && $("#form")) return;
+  if (!completo && UI.paso === "puerta" && $("#fila")) { $("#fila").innerHTML = filaHTML(); return; }
+  $("#main").innerHTML = VISTAS[UI.paso]();
+  if (formulario) revisarForm();
+}
+function irA(paso) { UI.paso = paso; try { history.replaceState(null, "", "#" + paso); } catch (_) {} pintar(true); window.scrollTo({ top: 0 }); }
+
+function leerForm() {
+  for (const el of $$("#form [id^=f_]")) UI.draft[el.id.slice(2)] = el.type === "checkbox" ? el.checked : el.value;
+  const t = $("#form input[name=tipo]:checked"); if (t) UI.draft.tipo = t.value;
+}
+function revisarForm() {
+  const v = validar(UI.draft);
+  for (const el of $$("#form [data-err]")) {
+    const k = el.dataset.err, f = v.fmt[k], r = v.regla[k];
+    el.innerHTML = f ? esc(f) : r ? `${esc(ERR_MSG[r])} <span class="mono">→ ${r}()</span>` : "";
+    $("#f_" + k)?.classList.toggle("bad", !!(f || r));
+  }
+  const ej = $("#ejemplo");
+  if (ej) {
+    if (v.precio != null && v.tope != null && v.regalia != null && v.comision != null) {
+      const max = (v.precio * BigInt(10000 + v.tope)) / 10000n, reg = (max * BigInt(v.regalia)) / 10000n, com = (max * BigInt(v.comision)) / 10000n;
+      ej.innerHTML = `<b>Ejemplo: alguien revende al precio máximo (${monto(max)})</b><div class="kv small"><div><span>Artista recibe</span><b>${monto(reg)}</b></div><div><span>Ticketera recibe</span><b>${monto(com)}</b></div><div><span>Vendedor recibe</span><b>${monto(max - reg - com)}</b></div></div><span class="small">Un precio mayor a ${monto(max)} se rechaza con <span class="mono">PrecioSuperaTope</span>.</span>`;
+    } else ej.innerHTML = `<span class="small">Completá precio y porcentajes para ver el reparto.</span>`;
+  }
+  pintarPasos();
+}
+
+/* ------------------------------------------------------------------ acciones */
+async function publicar() {
+  const d = UI.draft, v = validar(d);
+  const r = await ejecutar({
+    titulo: `Crear evento “${d.nombre}”`, ruta: "organizador/crear-evento", fn: "EventManager.crearEvento()", firmante: "Productora (admin)", siguiente: "Ver ventas en vivo",
+    cuerpo: { idEvento: d.idEvento, nombre: d.nombre, tipo: d.tipo, fechaHora: v.ts, lugar: d.lugar, precio: d.precio.replace(",", "."), capacidad: d.capacidad, topeBps: v.tope, regaliaBps: v.regalia, comisionBps: v.comision, limitePorPersona: d.limite, maxTransferencias: d.maxTr, requiereAdmision: d.admision },
+    exito: () => `<div class="box ok"><b>El evento ya está a la venta.</b><span class="small">Quedó en estado Programado. Los compradores lo ven en la cartelera.</span></div>`,
+  });
+  if (r?.ok) { UI.sel = d.idEvento; UI.draft = null; irA(r.siguiente ? "ventas" : "ventas"); }
+}
+async function accionOraculo(tipo) {
+  const e = App.evento(UI.sel);
+  await ejecutar({ titulo: tipo === "cancelar" ? `Cancelar “${e.nombre}”` : `Cerrar “${e.nombre}” y liberar la custodia`, ruta: "oraculo/" + tipo, cuerpo: { idEvento: e.idEvento }, fn: `EventManager.${tipo === "cancelar" ? "cancelarEvento" : "cerrarEvento"}()`, firmante: "Oráculo" });
+  pintar(true);
+}
+
+document.addEventListener("click", async (ev) => {
+  const b = ev.target.closest("button, a[data-paso]");
+  if (!b) return;
+  const d = b.dataset;
+  if (d.paso) { if ($("#form")) leerForm(); return irA(d.paso); }
+  if (d.ver) { UI.sel = d.ver; return irA("ventas"); }
+  if (b.id === "publicar") return publicar();
+  if (b.id === "cancelar") return accionOraculo("cancelar");
+  if (b.id === "cerrar") return accionOraculo("cerrar");
+  if (b.id === "adelantar") {
+    const e = App.evento(UI.sel);
+    await App.post("tiempo/adelantar", { segundos: e.fechaHora + App.cfg.margenCierre + 60 - App.est.ahora });
+    toast("Reloj de la red adelantado hasta después del evento + 24 h.", "");
+    await App.refrescar(); return pintar(true);
+  }
+  if (b.id === "retirar") { await ejecutar({ titulo: "Retirar fondos del organizador", ruta: "retirar", cuerpo: { cuenta: "organizador" }, fn: "EventManager.retirarFondos()", firmante: "Productora (admin)" }); return pintar(true); }
+  if (d.escanear !== undefined) {
+    const e = App.evento(UI.sel);
+    const ids = new Set(App.est.entradas.filter((t) => String(t.idEvento) === String(e.idEvento)).map((t) => t.tokenId));
+    const q = App.est.qrs.filter((x) => ids.has(Number(x.tokenId)))[Number(d.escanear)];
+    UI.pegado = JSON.stringify({ tokenId: q.tokenId, timestamp: q.timestamp, compromiso: q.compromiso, firma: q.firma });
+    return validarIngreso(q);
+  }
+  if (b.id === "validarPegado") {
+    UI.pegado = $("#pegado").value;
+    let q; try { q = JSON.parse(UI.pegado); } catch (_) { return toast("El contenido no es un QR válido (JSON).", "bad"); }
+    if (!q || q.tokenId == null || !q.timestamp || !q.compromiso || !q.firma) return toast("Al QR le faltan datos: tokenId, timestamp, compromiso o firma.", "bad");
+    return validarIngreso(q);
+  }
+  if (b.id === "reiniciarSim") { Simulador.reiniciar(); UI.draft = null; UI.sel = null; await App.refrescar(); return irA("billetera"); }
+});
+document.addEventListener("input", (ev) => { if (ev.target.closest("#form")) { leerForm(); revisarForm(); } });
+document.addEventListener("change", (ev) => {
+  if (ev.target.closest("#form")) { leerForm(); revisarForm(); }
+  if (ev.target.id === "selEvento") { UI.sel = ev.target.value; UI.puerta = null; pintar(true); }
+});
+
+montarRiel();
+App.iniciar(() => pintar(false)).then(() => {
+  const h = location.hash.slice(1);
+  if (PASOS.some((p) => p.id === h)) UI.paso = h;
+  pintar(true);
+}).catch((e) => { $("#main").innerHTML = `<div class="empty">No se pudo iniciar: ${esc(e.message)}</div>`; });
+</script>
+</body>
+</html>
