@@ -42,7 +42,7 @@ npm run interfaz:local    # nodo local: antes `npm run nodo` en otra terminal
 
 En las redes locales aparece el botón "Adelantar el reloj de la red", que sirve para mostrar el cierre del evento y las entradas vencidas. En Amoy no se puede adelantar el tiempo.
 
-Variables opcionales del `.env`: `PUERTO_INTERFAZ` (por defecto 3000), `PRECIO_ENTRADA` (precio sugerido, por defecto 0.001 en Amoy), `RESERVA_GAS` (saldo mínimo que se deja a cada comprador para gas, por defecto 0.03 POL) y `MINIMO_DESPLIEGUE` (saldo mínimo para arrancar, por defecto 0.3 POL).
+Variables opcionales del `.env`: `PUERTO_INTERFAZ` (por defecto 3000), `PRECIO_ENTRADA` (precio sugerido, por defecto 0.001 en Amoy), `RESERVA_GAS` (si a un comprador le queda menos que esto para gas, se le carga saldo; por defecto 0.02 POL), `CARGA_COMPRADOR` (cuánto se le carga cada vez, por defecto 0.1 POL) y `MINIMO_DESPLIEGUE` (saldo mínimo para arrancar, por defecto 0.3 POL).
 
 ## Rechazos del contrato
 

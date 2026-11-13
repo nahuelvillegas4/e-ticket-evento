@@ -182,13 +182,16 @@ async function enviar({ actor, signer, contrato, nombreContrato, metodo, args, v
 async function asegurarSaldo(actor, necesario = 0n) {
   const w = cuentas[actor];
   if (!w || actor === "organizador") return null;
-  const reserva = ethers.parseEther(process.env.RESERVA_GAS || (ES_LOCAL ? "0.5" : "0.03"));
+  // Con margen: solo se recarga cuando el saldo no cubre el monto + un mínimo para gas,
+  // y se recarga de más (CARGA_COMPRADOR) para que las siguientes operaciones no necesiten otra carga.
+  const minimo = ethers.parseEther(process.env.RESERVA_GAS || (ES_LOCAL ? "0.5" : "0.02"));
+  const carga = ethers.parseEther(process.env.CARGA_COMPRADOR || (ES_LOCAL ? "1" : "0.1"));
   const saldo = await ethers.provider.getBalance(w.address);
-  const objetivo = necesario + reserva;
-  if (saldo >= objetivo) return null;
-  const tx = await admin.sendTransaction({ to: w.address, value: objetivo - saldo });
+  if (saldo >= necesario + minimo) return null;
+  const monto = necesario + carga - saldo;
+  const tx = await admin.sendTransaction({ to: w.address, value: monto });
   const recibo = await tx.wait();
-  return registrarTx({ actor: "organizador", descripcion: `Carga de saldo a ${w.nombre} (${ethers.formatEther(objetivo - saldo)} ${MONEDA})`, contrato: null, metodo: "transfer", tx, recibo, valor: objetivo - saldo });
+  return registrarTx({ actor: "organizador", descripcion: `Carga de saldo a ${w.nombre} (${ethers.formatEther(monto)} ${MONEDA})`, contrato: null, metodo: "transfer", tx, recibo, valor: monto });
 }
 
 const ahora = async () => (await ethers.provider.getBlock("latest")).timestamp;
