@@ -1,0 +1,1640 @@
+<title>e-TicketEvento</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: app de taquilla a la izquierda (vistas por rol), "cadena en vivo" fija a la derecha
+   (reloj simulado, máquinas de estado y feed de transacciones). En móvil se apila. */
+:root {
+  --bg: #F4F3F8; --surface: #FFFFFF; --surface-2: #ECEBF3; --line: #DAD8E5;
+  --fg: #17152A; --muted: #615D78;
+  --accent: #DE4F24; --accent-ink: #FFFFFF; --accent-soft: #FBE2D8;
+  --chain: #4A44C6; --chain-soft: #E5E4FA;
+  --ok: #157F59; --ok-soft: #DCF2E8; --warn: #A86B12; --warn-soft: #FAEED6; --bad: #C2303B; --bad-soft: #F8DEE0;
+  --shadow: 0 1px 2px rgba(23,21,42,.06), 0 8px 24px rgba(23,21,42,.07);
+  --f-display: "Bricolage Grotesque", "Space Grotesk", system-ui, sans-serif;
+  --f-body: "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --r: 10px;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #101018; --surface: #191924; --surface-2: #222230; --line: #31314A;
+  --fg: #ECEBF5; --muted: #A19EB9;
+  --accent: #FF7A4C; --accent-ink: #1C0D06; --accent-soft: #3B2118;
+  --chain: #A3A0FF; --chain-soft: #25244A;
+  --ok: #43D49D; --ok-soft: #12322A; --warn: #F2B552; --warn-soft: #3A2C12; --bad: #FF6D76; --bad-soft: #3D1A1F;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35);
+  color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #101018; --surface: #191924; --surface-2: #222230; --line: #31314A;
+  --fg: #ECEBF5; --muted: #A19EB9;
+  --accent: #FF7A4C; --accent-ink: #1C0D06; --accent-soft: #3B2118;
+  --chain: #A3A0FF; --chain-soft: #25244A;
+  --ok: #43D49D; --ok-soft: #12322A; --warn: #F2B552; --warn-soft: #3A2C12; --bad: #FF6D76; --bad-soft: #3D1A1F;
+  --shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 30px rgba(0,0,0,.35);
+  color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font-family: var(--f-body); font-size: 14px; line-height: 1.5; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--surface); }
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; letter-spacing: -0.01em; }
+h1 { font-size: 1.75rem; font-weight: 800; }
+h2 { font-size: 1.2rem; font-weight: 700; }
+h3 { font-size: 1rem; font-weight: 700; }
+p { margin: 0; }
+.mono { font-family: var(--f-mono); font-size: .82em; }
+.muted { color: var(--muted); }
+.num { font-variant-numeric: tabular-nums; }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ---------- Top bar ---------- */
+.topbar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: var(--surface); border-bottom: 1px solid var(--line);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 10px;
+  display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 10px; margin-right: auto; }
+.brand-mark { width: 34px; height: 34px; border-radius: 8px; background: var(--accent); color: var(--accent-ink); display: grid; place-items: center; font-family: var(--f-display); font-weight: 800; font-size: 15px; position: relative; }
+.brand-mark::before, .brand-mark::after { content: ""; position: absolute; top: 50%; width: 8px; height: 8px; border-radius: 50%; background: var(--surface); transform: translateY(-50%); }
+.brand-mark::before { left: -4px; } .brand-mark::after { right: -4px; }
+.brand b { font-family: var(--f-display); font-size: 1.15rem; font-weight: 800; letter-spacing: -0.02em; }
+.brand small { display: block; color: var(--muted); font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
+.net { display: inline-flex; align-items: center; gap: 7px; padding: 5px 10px; border-radius: 999px; background: var(--chain-soft); color: var(--chain); font-size: 12px; font-weight: 600; white-space: nowrap; }
+.net::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 3px color-mix(in srgb, var(--ok) 25%, transparent); }
+.wallet-btn { display: inline-flex; align-items: center; gap: 10px; padding: 6px 12px 6px 6px; border-radius: 999px; border: 1px solid var(--line); background: var(--surface-2); cursor: pointer; }
+.wallet-btn:hover { border-color: var(--accent); }
+.avatar { width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-weight: 700; font-size: 12px; color: #fff; flex: none; }
+.wallet-btn .who { text-align: left; line-height: 1.15; }
+.wallet-btn .who b { display: block; font-size: 13px; }
+.wallet-btn .who span { font-size: 11px; color: var(--muted); }
+
+/* ---------- Layout ---------- */
+.layout { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 20px; align-items: start;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 18px 40px; max-width: 1480px; margin: 0 auto; }
+@media (max-width: 1060px) { .layout { grid-template-columns: minmax(0, 1fr); } }
+main { min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+.tabs { display: flex; gap: 4px; padding: 4px; background: var(--surface); border: 1px solid var(--line); border-radius: 12px; overflow-x: auto; }
+.tab { flex: 1 0 auto; border: 0; background: transparent; padding: 9px 14px; border-radius: 8px; cursor: pointer; font-weight: 600; color: var(--muted); white-space: nowrap; display: inline-flex; gap: 7px; align-items: center; justify-content: center; }
+.tab:hover { color: var(--fg); background: var(--surface-2); }
+.tab[aria-selected="true"] { background: var(--fg); color: var(--bg); }
+.tab .count { font-size: 11px; padding: 0 6px; border-radius: 999px; background: var(--accent); color: var(--accent-ink); }
+.view-head { display: flex; flex-direction: column; gap: 4px; }
+.view-head p { color: var(--muted); max-width: 70ch; }
+.banner { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 14px; border-radius: var(--r); background: var(--warn-soft); color: var(--fg); border: 1px solid color-mix(in srgb, var(--warn) 35%, transparent); }
+.banner b { color: var(--warn); }
+
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+.section-title { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+
+/* ---------- Buttons & pills ---------- */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: 1px solid var(--line); background: var(--surface); padding: 8px 14px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 13px; white-space: nowrap; }
+.btn:hover { border-color: var(--fg); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.btn.primary:hover { filter: brightness(1.06); }
+.btn.dark { background: var(--fg); border-color: var(--fg); color: var(--bg); }
+.btn.danger { color: var(--bad); border-color: color-mix(in srgb, var(--bad) 40%, var(--line)); }
+.btn.danger:hover { background: var(--bad-soft); }
+.btn.ghost { border-color: transparent; background: transparent; }
+.btn.small { padding: 5px 10px; font-size: 12px; }
+.btn.block { width: 100%; padding: 12px; font-size: 14px; }
+.btn[disabled] { opacity: .45; cursor: not-allowed; }
+.btn.warn-send { background: var(--bad); border-color: var(--bad); color: #fff; }
+.pill { display: inline-flex; align-items: center; gap: 6px; padding: 2px 9px; border-radius: 999px; font-size: 11.5px; font-weight: 700; letter-spacing: .02em; white-space: nowrap; }
+.pill::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.p-ok { background: var(--ok-soft); color: var(--ok); }
+.p-warn { background: var(--warn-soft); color: var(--warn); }
+.p-bad { background: var(--bad-soft); color: var(--bad); }
+.p-chain { background: var(--chain-soft); color: var(--chain); }
+.p-mute { background: var(--surface-2); color: var(--muted); }
+.p-accent { background: var(--accent-soft); color: var(--accent); }
+.chip { display: inline-block; padding: 1px 7px; border-radius: 5px; font-size: 10.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; background: var(--surface-2); color: var(--muted); }
+
+/* ---------- Forms ---------- */
+.org-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 820px) { .org-grid { grid-template-columns: minmax(0, 1fr); } }
+.form { display: flex; flex-direction: column; gap: 16px; }
+.fieldset { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 14px; }
+@media (max-width: 520px) { .fieldset { grid-template-columns: minmax(0, 1fr); } }
+.fieldset .full { grid-column: 1 / -1; }
+.legend { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); display: flex; align-items: center; gap: 8px; }
+.legend::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.field label { font-size: 12.5px; font-weight: 600; }
+.field .hint { font-size: 11.5px; color: var(--muted); }
+.field .err { font-size: 11.5px; color: var(--bad); font-weight: 600; }
+.field .err .mono { font-weight: 400; }
+.input { width: 100%; padding: 9px 11px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); min-width: 0; }
+.input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px var(--accent-soft); }
+.input.bad { border-color: var(--bad); }
+.suffix { position: relative; }
+.suffix span { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 12px; pointer-events: none; }
+.suffix .input { padding-right: 46px; }
+.check { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; cursor: pointer; }
+.check input { margin-top: 3px; accent-color: var(--accent); }
+.form-foot { display: flex; flex-direction: column; gap: 8px; }
+
+/* ---------- Ticket ---------- */
+.ticket { --notch: 11px; position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 118px; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; box-shadow: var(--shadow); cursor: pointer; transition: transform .15s ease; }
+.ticket:hover { transform: translateY(-2px); }
+.ticket.sel { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-soft), var(--shadow); }
+.ticket .main { padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.ticket .stub { border-left: 2px dashed var(--line); padding: 16px 12px; display: flex; flex-direction: column; align-items: center; justify-content: space-between; gap: 8px; text-align: center; background: var(--surface-2); position: relative; }
+.ticket .stub::before, .ticket .stub::after { content: ""; position: absolute; left: calc(var(--notch) * -1 - 1px); width: calc(var(--notch) * 2); height: calc(var(--notch) * 2); border-radius: 50%; background: var(--bg); border: 1px solid var(--line); }
+.ticket .stub::before { top: calc(var(--notch) * -1); } .ticket .stub::after { bottom: calc(var(--notch) * -1); }
+.ticket .stub .tid { font-family: var(--f-display); font-weight: 800; font-size: 1.6rem; line-height: 1; }
+.ticket .stub small { font-size: 10px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.ticket .ev-name { font-family: var(--f-display); font-weight: 800; font-size: 1.15rem; line-height: 1.15; }
+.ticket .meta { display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--muted); font-size: 12.5px; }
+.ticket .kv { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.kv div { min-width: 0; }
+.kv small { display: block; font-size: 10.5px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.kv b { font-size: 13px; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.ticket .actions { display: flex; gap: 6px; flex-wrap: wrap; }
+.ticket.dim .main { opacity: .7; }
+.stamp { position: absolute; top: 14px; right: 132px; transform: rotate(-8deg); border: 2px solid currentColor; border-radius: 6px; padding: 2px 8px; font-family: var(--f-display); font-weight: 800; font-size: 13px; letter-spacing: .08em; text-transform: uppercase; opacity: .85; pointer-events: none; }
+@media (max-width: 520px) { .ticket { grid-template-columns: minmax(0, 1fr) 88px; } .stamp { right: 100px; } .ticket .kv { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+
+.grid-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 330px), 1fr)); gap: 14px; }
+.list { display: flex; flex-direction: column; gap: 12px; }
+
+/* Poster (cartelera) */
+.poster { display: flex; flex-direction: column; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; }
+.poster .art { height: 112px; position: relative; padding: 14px 16px; display: flex; flex-direction: column; justify-content: space-between; color: #fff; }
+.poster .art .date { font-family: var(--f-display); font-weight: 800; line-height: .95; font-size: 2rem; }
+.poster .art .date small { display: block; font-size: .8rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; opacity: .9; }
+.poster .body { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 10px; flex: 1; }
+.poster .body h3 { font-size: 1.12rem; }
+.bar { height: 6px; border-radius: 999px; background: var(--surface-2); overflow: hidden; }
+.bar i { display: block; height: 100%; background: var(--accent); border-radius: 999px; }
+.price { font-family: var(--f-display); font-weight: 800; font-size: 1.3rem; }
+.price small { font-family: var(--f-body); font-size: 12px; color: var(--muted); font-weight: 500; }
+.row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.row.between { justify-content: space-between; }
+.spacer { flex: 1; }
+
+/* Tablas */
+.tbl-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); font-weight: 700; padding: 10px 12px; border-bottom: 1px solid var(--line); background: var(--surface-2); white-space: nowrap; }
+td { padding: 11px 12px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+tr:last-child td { border-bottom: 0; }
+tr.clickable { cursor: pointer; } tr.clickable:hover td { background: var(--surface-2); }
+tr.sel td { background: var(--accent-soft); }
+
+/* Rules list */
+.rules { display: flex; flex-direction: column; gap: 0; }
+.rule { display: grid; grid-template-columns: 26px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 9px 0; border-bottom: 1px dashed var(--line); }
+.rule:last-child { border-bottom: 0; }
+.rule .ic { width: 26px; height: 26px; border-radius: 7px; background: var(--chain-soft); color: var(--chain); display: grid; place-items: center; font-size: 13px; font-weight: 800; }
+.rule b { font-variant-numeric: tabular-nums; text-align: right; }
+.rule small { display: block; color: var(--muted); font-size: 11.5px; }
+
+/* ---------- Chain panel ---------- */
+aside.chain { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+.panel { background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 14px; min-width: 0; }
+.panel h3 { font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-family: var(--f-body); font-weight: 700; display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.clock { font-family: var(--f-display); font-weight: 700; font-size: 1.35rem; font-variant-numeric: tabular-nums; margin-top: 6px; }
+.clock-sub { font-size: 12px; color: var(--muted); display: flex; gap: 10px; flex-wrap: wrap; }
+.clock-btns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.sm { width: 100%; height: auto; display: block; margin-top: 8px; }
+.sm .node rect { fill: var(--surface-2); stroke: var(--line); stroke-width: 1.2; }
+.sm .node text { fill: var(--muted); font-family: var(--f-body); font-size: 11.5px; font-weight: 600; }
+.sm .node.seen rect { fill: var(--chain-soft); stroke: var(--chain); }
+.sm .node.seen text { fill: var(--chain); }
+.sm .node.cur rect { fill: var(--accent); stroke: var(--accent); }
+.sm .node.cur text { fill: var(--accent-ink); font-weight: 800; }
+.sm .node.cur { filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 55%, transparent)); }
+.sm .edge { stroke: var(--line); stroke-width: 1.5; fill: none; }
+.sm .edge.dash { stroke-dasharray: 4 3; }
+.sm .elbl { fill: var(--muted); font-family: var(--f-mono); font-size: 8.5px; }
+.sm .arrowhead { fill: var(--muted); }
+.sm-caption { font-size: 12px; color: var(--muted); margin-top: 6px; }
+.hist { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
+.hist div { display: grid; grid-template-columns: 96px minmax(0, 1fr); gap: 8px; }
+.hist .t { color: var(--muted); font-variant-numeric: tabular-nums; }
+.txlog-panel { display: flex; flex-direction: column; }
+.txlog { overflow-y: auto; max-height: 560px; display: flex; flex-direction: column; gap: 8px; margin-top: 8px; padding-right: 2px; }
+.tx { border: 1px solid var(--line); border-radius: 10px; padding: 9px 10px; background: var(--bg); font-size: 12px; display: flex; flex-direction: column; gap: 4px; }
+.tx.new { animation: flash 1.2s ease; }
+@keyframes flash { from { background: var(--accent-soft); } to { background: var(--bg); } }
+.tx .fn { font-family: var(--f-mono); font-weight: 600; font-size: 12px; overflow-wrap: anywhere; }
+.tx .fn em { font-style: normal; color: var(--muted); font-weight: 400; }
+.tx .line { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; color: var(--muted); }
+.tx .evs { display: flex; flex-wrap: wrap; gap: 4px; }
+.tx .evs span { font-family: var(--f-mono); font-size: 10.5px; padding: 1px 6px; border-radius: 4px; background: var(--chain-soft); color: var(--chain); }
+.tx .revert { font-family: var(--f-mono); font-size: 11px; color: var(--bad); overflow-wrap: anywhere; }
+.tx details summary { cursor: pointer; color: var(--muted); font-size: 11px; }
+.tx details pre { margin: 6px 0 0; white-space: pre-wrap; overflow-wrap: anywhere; font-family: var(--f-mono); font-size: 10.5px; color: var(--fg); background: var(--surface-2); padding: 6px; border-radius: 6px; }
+.toggle-row { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); }
+.toggle-row input { accent-color: var(--accent); }
+
+/* ---------- Modals ---------- */
+.overlay { position: fixed; inset: 0; z-index: 50; background: rgba(12, 10, 24, .55); backdrop-filter: blur(3px); display: grid; place-items: center;
+  padding: max(16px, env(safe-area-inset-top, 0px)) max(16px, env(safe-area-inset-right, 0px)) max(16px, env(safe-area-inset-bottom, 0px)) max(16px, env(safe-area-inset-left, 0px)); animation: fade .15s ease; }
+.overlay.top { z-index: 60; }
+@keyframes fade { from { opacity: 0; } }
+.modal { width: min(560px, 100%); max-height: calc(100vh - 32px); overflow-y: auto; background: var(--surface); border-radius: 16px; border: 1px solid var(--line); box-shadow: 0 30px 80px rgba(0,0,0,.35); animation: pop .18s ease; }
+.modal.wide { width: min(680px, 100%); }
+@keyframes pop { from { transform: translateY(10px) scale(.98); opacity: 0; } }
+.modal-head { padding: 16px 18px 12px; display: flex; align-items: flex-start; gap: 12px; border-bottom: 1px solid var(--line); }
+.modal-head .x { margin-left: auto; }
+.modal-body { padding: 16px 18px; display: flex; flex-direction: column; gap: 14px; }
+.modal-foot { padding: 12px 18px 16px; display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; border-top: 1px solid var(--line); }
+.steps { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.step { display: flex; flex-direction: column; gap: 5px; font-size: 11.5px; font-weight: 600; color: var(--muted); }
+.step i { height: 4px; border-radius: 999px; background: var(--surface-2); }
+.step.done i { background: var(--chain); } .step.cur i { background: var(--accent); } .step.cur { color: var(--fg); }
+.box { border: 1px solid var(--line); border-radius: 10px; padding: 12px; background: var(--bg); display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.box.ok { border-color: color-mix(in srgb, var(--ok) 45%, var(--line)); background: var(--ok-soft); }
+.box.bad { border-color: color-mix(in srgb, var(--bad) 45%, var(--line)); background: var(--bad-soft); }
+.box.chain { border-color: color-mix(in srgb, var(--chain) 35%, var(--line)); background: var(--chain-soft); }
+.hashline { font-family: var(--f-mono); font-size: 11px; overflow-wrap: anywhere; word-break: break-all; }
+.kvrows { display: flex; flex-direction: column; gap: 6px; }
+.kvrows div { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+.kvrows div span:first-child { color: var(--muted); }
+.kvrows div b { font-variant-numeric: tabular-nums; text-align: right; overflow-wrap: anywhere; min-width: 0; }
+.kvrows .total { border-top: 1px solid var(--line); padding-top: 6px; font-size: 15px; }
+.attack { border: 1px dashed color-mix(in srgb, var(--bad) 50%, var(--line)); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+.attack summary { cursor: pointer; font-weight: 700; color: var(--bad); font-size: 12.5px; }
+.attack label { display: flex; gap: 8px; align-items: flex-start; font-size: 12.5px; }
+.attack input { accent-color: var(--bad); margin-top: 3px; }
+
+/* Wallet sheet */
+.wallet-sheet .modal-head { background: var(--surface-2); }
+.wallet-list { display: flex; flex-direction: column; gap: 6px; }
+.wallet-item { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line); background: var(--bg); cursor: pointer; text-align: left; width: 100%; }
+.wallet-item:hover { border-color: var(--accent); }
+.wallet-item.on { border-color: var(--accent); background: var(--accent-soft); }
+.wallet-item .avatar { width: 32px; height: 32px; }
+.wallet-item b { display: block; font-size: 13px; }
+.wallet-item small { color: var(--muted); font-size: 11.5px; }
+.spinner { width: 38px; height: 38px; border-radius: 50%; border: 3px solid var(--surface-2); border-top-color: var(--accent); animation: spin .8s linear infinite; margin: 8px auto; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* QR */
+.qr-wrap { display: grid; grid-template-columns: 220px minmax(0, 1fr); gap: 16px; align-items: center; }
+@media (max-width: 520px) { .qr-wrap { grid-template-columns: minmax(0, 1fr); justify-items: center; } }
+.qr { width: 220px; max-width: 100%; aspect-ratio: 1; background: #fff; border-radius: 12px; padding: 8px; position: relative; }
+.qr svg { width: 100%; height: 100%; display: block; }
+.qr.expired::after { content: "VENCIDO"; position: absolute; inset: 0; display: grid; place-items: center; background: rgba(255,255,255,.85); color: #C2303B; font-family: var(--f-display); font-weight: 800; letter-spacing: .12em; border-radius: 12px; }
+.ring { font-family: var(--f-display); font-weight: 800; font-size: 2.2rem; font-variant-numeric: tabular-nums; line-height: 1; }
+
+/* Door */
+.door-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 820px) { .door-grid { grid-template-columns: minmax(0, 1fr); } }
+.turnstile { border-radius: 14px; padding: 22px; text-align: center; display: flex; flex-direction: column; gap: 8px; align-items: center; border: 1px solid var(--line); background: var(--surface); }
+.turnstile .big { font-family: var(--f-display); font-weight: 800; font-size: 2.1rem; line-height: 1; }
+.turnstile.ok { background: var(--ok-soft); border-color: var(--ok); color: var(--ok); }
+.turnstile.bad { background: var(--bad-soft); border-color: var(--bad); color: var(--bad); }
+.checks { display: flex; flex-direction: column; gap: 6px; text-align: left; width: 100%; color: var(--fg); }
+.checks div { display: grid; grid-template-columns: 20px minmax(0, 1fr); gap: 8px; font-size: 12.5px; }
+.checks .y { color: var(--ok); font-weight: 800; } .checks .n { color: var(--bad); font-weight: 800; } .checks .s { color: var(--muted); }
+.queue-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg); }
+
+/* Toast */
+#toasts { position: fixed; z-index: 80; right: max(16px, env(safe-area-inset-right, 0px)); bottom: max(16px, env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 8px; max-width: min(380px, calc(100vw - 32px)); }
+.toast { padding: 11px 14px; border-radius: 10px; background: var(--fg); color: var(--bg); box-shadow: var(--shadow); font-size: 13px; animation: pop .2s ease; display: flex; gap: 10px; align-items: flex-start; }
+.toast.bad { background: var(--bad); color: #fff; }
+.toast.ok { background: var(--ok); color: #fff; }
+.empty { text-align: center; padding: 34px 18px; border: 1px dashed var(--line); border-radius: 14px; color: var(--muted); display: flex; flex-direction: column; gap: 10px; align-items: center; }
+.loading { padding: 60px 20px; text-align: center; color: var(--muted); }
+.mint-anim { animation: mint .7s cubic-bezier(.2,.9,.3,1.3); }
+@keyframes mint { from { transform: scale(.85) rotate(-3deg); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation: none !important; transition: none !important; } }
+</style>
+
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-mark">eT</div>
+    <div><b>e-TicketEvento</b><small>Entradas tokenizadas · UTN FRC 5K3A</small></div>
+  </div>
+  <span class="net" title="Red simulada en el navegador. Las direcciones de contrato son las del despliegue en Amoy.">Polygon Amoy · 80002 · simulada</span>
+  <button class="wallet-btn" id="walletBtn" type="button" aria-haspopup="dialog"></button>
+</header>
+
+<div class="layout">
+  <main>
+    <nav class="tabs" id="tabs" role="tablist"></nav>
+    <div id="banner"></div>
+    <section id="view"><div class="loading">Derivando billeteras y desplegando contratos simulados…</div></section>
+  </main>
+  <aside class="chain" aria-label="Cadena en vivo">
+    <div class="panel" id="clockPanel"></div>
+    <div class="panel" id="machines"></div>
+    <div class="panel txlog-panel">
+      <h3>Transacciones <span class="row" style="gap:6px"><label class="toggle-row" title="Si está activado, la billetera firma sin pedir confirmación"><input type="checkbox" id="autoConfirm"> auto-firmar</label></span></h3>
+      <div class="txlog" id="txlog"></div>
+    </div>
+  </aside>
+</div>
+<div id="modalRoot"></div>
+<div id="walletRoot"></div>
+<div id="toasts" aria-live="polite"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcode-generator/1.4.4/qrcode.min.js"></script>
+<script>
+"use strict";
+/* =====================================================================
+   e-TicketEvento · Interfaz de demostración
+   Simula en el navegador los tres contratos (EventManager, EntradaNFT,
+   ReventaMarketplace) replicando sus validaciones y errores custom.
+   Las firmas EIP-712, los compromisos keccak256 y las direcciones son
+   reales (ethers.js); la red, los pagos y los bloques son ficticios.
+   ===================================================================== */
+const E = window.ethers;
+const U = E.utils;
+const CHAIN_ID = 80002;
+const ADDR = {
+  EntradaNFT: "0x091e9EEb34181D89d5C3F3171D31036B688909cb",
+  EventManager: "0x321375bd30Fd031E9F44EF6eCCC6aB23bb32B09a",
+  ReventaMarketplace: "0x0423B4398a5d3Cc2CAfeb38Ada5039813afaaC75",
+};
+const CONTRATO_DE = Object.fromEntries(Object.entries(ADDR).map(([k, v]) => [v.toLowerCase(), k]));
+// Mnemónico público de Hardhat (cuentas de prueba, sin valor real).
+const MNEMONIC = "test test test test test test test test test test test junk";
+const VENTANA_QR = 60, MARGEN_CIERRE = 86400;
+const TIPOS = ["Recital", "Espectaculo", "Futbol"];
+const TIPO_LABEL = { Recital: "Recital", Espectaculo: "Espectáculo", Futbol: "Fútbol" };
+const TIPO_COLOR = { Recital: ["#D9481F", "#7A1E52"], Espectaculo: ["#4136B8", "#1F7A8C"], Futbol: ["#1B7F4C", "#0E3B5C"] };
+// Lista de derecho de admisión que consulta el verificador (Tribuna Segura) en eventos que lo requieren.
+const RESTRINGIDOS = new Set(["30111222"]);
+
+const PERFILES = [
+  { key: "org", nombre: "Productora Mediterránea", rol: "Organizador", roles: ["ORGANIZADOR_ROLE"], color: "#DE4F24" },
+  { key: "oraculo", nombre: "Oráculo de eventos", rol: "Oráculo", roles: ["ORACULO_ROLE"], color: "#7A4BC9" },
+  { key: "verif", nombre: "Tribuna Segura (KYC)", rol: "Verificador", roles: ["VERIFICADOR_ROLE"], color: "#1F7A8C" },
+  { key: "puerta", nombre: "Control de acceso · Puerta 3", rol: "Validador", roles: ["VALIDADOR_ROLE"], color: "#3A3A52" },
+  { key: "artista", nombre: "Sierras Sónicas", rol: "Artista", roles: [], color: "#B5357A" },
+  { key: "plataforma", nombre: "e-TicketEvento S.A.", rol: "Plataforma", roles: [], color: "#4A44C6" },
+  { key: "ana", nombre: "Ana Ferreyra", rol: "Fan", roles: [], color: "#E08A12", dni: "38456123" },
+  { key: "bruno", nombre: "Bruno Quiroga", rol: "Fan", roles: [], color: "#157F59", dni: "41222333" },
+  { key: "carla", nombre: "Carla Mansilla", rol: "Fan", roles: [], color: "#C2303B", dni: "30111222" },
+];
+const W = {}; // key -> {perfil, wallet, address}
+const BY_ADDR = {};
+
+const ERR_MSG = {
+  AccessControlUnauthorizedAccount: "La billetera no tiene el rol que exige la función.",
+  EventoYaExiste: "Ya existe un evento con ese ID.",
+  EventoInexistente: "El evento no existe.",
+  FechaInvalida: "La fecha del evento tiene que ser futura.",
+  CapacidadInvalida: "La capacidad tiene que ser mayor a cero.",
+  PrecioInvalido: "El precio base tiene que ser mayor a cero.",
+  DireccionInvalida: "Dirección de artista o plataforma inválida.",
+  SumaPorcentajesInvalida: "Regalía + comisión tienen que sumar menos de 100 %.",
+  LimitePorPersonaInvalido: "El límite por persona tiene que ser al menos 1.",
+  EventoNoProgramado: "El evento no está en estado Programado.",
+  CapacidadAgotada: "No quedan entradas: capacidad agotada.",
+  MontoIncorrecto: "El monto enviado no coincide con el precio exacto.",
+  LimitePorPersonaExcedido: "Esta identidad ya alcanzó el máximo de entradas por persona.",
+  FirmaInvalida: "La firma no pertenece a quien corresponde.",
+  ECDSAInvalidSignature: "La firma está mal formada.",
+  FueraDeTermino: "La operación está fuera del plazo permitido.",
+  YaReembolsada: "Esta entrada ya fue reembolsada.",
+  EntradaNoValidaParaIngreso: "La entrada no está en un estado válido para esta operación.",
+  NoEsTitular: "Solo el titular puede hacer esta operación.",
+  SinSaldo: "No hay saldo pendiente para retirar.",
+  TransferenciaDirectaBloqueada: "Candado antifraude: las transferencias P2P están bloqueadas. Solo se revende en el marketplace oficial.",
+  CompromisoNoCoincide: "La identidad presentada no coincide con la del titular.",
+  QRExpirado: "El QR venció (ventana de 60 s). Probablemente es una captura de pantalla.",
+  TokenNoExiste: "La entrada no existe.",
+  MaxTransferenciasAlcanzado: "La entrada alcanzó el máximo de reventas permitido.",
+  PrecioSuperaTope: "El precio supera el tope legal de reventa.",
+  PublicacionNoActiva: "La publicación ya no está activa.",
+};
+
+/* ------------------------------ utilidades ------------------------------ */
+const $ = (s, r = document) => r.querySelector(s);
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const short = (a) => (a ? a.slice(0, 6) + "…" + a.slice(-4) : "—");
+const shortH = (h) => (h ? h.slice(0, 10) + "…" + h.slice(-6) : "—");
+const toWei = (s) => BigInt(U.parseEther(String(s)).toString());
+const POL = (wei, d = 4) => {
+  const n = Number(U.formatEther((wei ?? 0n).toString()));
+  return n.toLocaleString("es-AR", { maximumFractionDigits: d }) + " POL";
+};
+const pct = (bps) => (bps / 100).toLocaleString("es-AR", { maximumFractionDigits: 2 }) + " %";
+const fmtFecha = (ts) => new Date(ts * 1000).toLocaleString("es-AR", { weekday: "short", day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+const fmtHora = (ts) => new Date(ts * 1000).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+const fmtDia = (ts) => new Date(ts * 1000).toLocaleDateString("es-AR", { day: "2-digit", month: "short" });
+const selector = (sig) => U.id(sig).slice(0, 10);
+const nombreDe = (addr) => { if (!addr) return "—"; const w = BY_ADDR[addr.toLowerCase()]; if (w) return w.perfil.nombre; const c = CONTRATO_DE[addr.toLowerCase()]; return c || short(addr); };
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const randHash = () => U.hexlify(U.randomBytes(32));
+const initials = (n) => n.split(/\s+/).filter(Boolean).slice(0, 2).map((s) => s[0]).join("").toUpperCase();
+const avatar = (p, size) => `<span class="avatar" style="background:${p.color};${size ? `width:${size}px;height:${size}px` : ""}">${esc(initials(p.nombre))}</span>`;
+
+/* ------------------------------ estado ------------------------------ */
+let S;
+function freshState() {
+  const bal = {};
+  for (const p of PERFILES) bal[W[p.key].address.toLowerCase()] = p.rol === "Fan" ? toWei("150") : toWei("5");
+  return {
+    offset: 0, block: 14820331,
+    eventos: {}, entradas: {}, nextTokenId: 1, porPersona: {},
+    saldos: {}, bal, pubs: {}, nextPub: 1, tokenAPub: {},
+    txs: [], qrs: [], ident: {},
+    selEvento: null, selToken: null,
+    cur: "org", view: "organizador",
+  };
+}
+const now = () => Math.floor(Date.now() / 1000) + S.offset;
+const cur = () => W[S.cur];
+const addrOf = (k) => W[k].address;
+const lc = (a) => a.toLowerCase();
+const ROLES = () => ({
+  ORGANIZADOR_ROLE: [addrOf("org")], ORACULO_ROLE: [addrOf("oraculo")],
+  VERIFICADOR_ROLE: [addrOf("verif")], VALIDADOR_ROLE: [addrOf("puerta")],
+});
+const hasRole = (addr, role) => !!addr && ROLES()[role].some((a) => lc(a) === lc(addr));
+
+/* ------------------------------ EIP-712 ------------------------------ */
+const DOM_EM = () => ({ name: "EventManager", version: "1", chainId: CHAIN_ID, verifyingContract: ADDR.EventManager });
+const DOM_NFT = () => ({ name: "EntradaNFT", version: "1", chainId: CHAIN_ID, verifyingContract: ADDR.EntradaNFT });
+const T_VERIF = { VerificarIdentidad: [{ name: "compromiso", type: "bytes32" }, { name: "comprador", type: "address" }, { name: "idEvento", type: "uint256" }] };
+const T_ACCESO = { ValidarAcceso: [{ name: "tokenId", type: "uint256" }, { name: "timestamp", type: "uint64" }] };
+// Tribuna Segura asigna un salt determinístico por DNI: la misma persona siempre produce el mismo compromiso,
+// así el límite por persona se cumple aunque use varias billeteras.
+const saltPara = (dni) => U.keccak256(U.defaultAbiCoder.encode(["string", "uint256"], ["tribuna-segura/salt/v1", dni]));
+const compromisoDe = (dni, salt) => U.keccak256(U.defaultAbiCoder.encode(["uint256", "bytes32"], [dni, salt]));
+const firmarVerificacion = (signer, compromiso, comprador, idEvento) => signer._signTypedData(DOM_EM(), T_VERIF, { compromiso, comprador, idEvento });
+const firmarAcceso = (signer, tokenId, timestamp) => signer._signTypedData(DOM_NFT(), T_ACCESO, { tokenId, timestamp });
+function recuperar(dom, types, value, firma, contrato) {
+  try { return U.verifyTypedData(dom, types, value, firma); } catch { revert("ECDSAInvalidSignature", contrato); }
+}
+
+/* ------------------------------ contratos simulados ------------------------------ */
+class Revert extends Error {
+  constructor(name, contrato, sig) { super(name); this.errName = name; this.contrato = contrato; this.sig = sig || name + "()"; this.selector = selector(this.sig); }
+}
+function revert(name, contrato, sig) { throw new Revert(name, contrato, sig); }
+function onlyRole(m, role, contrato) { if (!hasRole(m.from, role)) revert("AccessControlUnauthorizedAccount", contrato, "AccessControlUnauthorizedAccount(address,bytes32)"); }
+const ev = (contrato, name, args) => ({ contrato, name, args });
+const credit = (addr, monto) => { const k = lc(addr); S.saldos[k] = (S.saldos[k] || 0n) + monto; };
+function marcarEntrada(t, estado, m) { t.estado = estado; t.historial.push({ estado, ts: now(), tx: m.hash }); }
+
+const estadoEfectivo = (t) => {
+  if (t.estado === "Utilizada" || t.estado === "Reembolsada") return t.estado;
+  if (S.eventos[t.idEvento]?.estado === "Finalizado") return "Vencida";
+  return t.estado === "EnReventa" ? "En reventa" : "Asignada";
+};
+
+const EventManager = {
+  crearEvento(m, p) {
+    onlyRole(m, "ORGANIZADOR_ROLE", "EventManager");
+    if (S.eventos[p.idEvento]) revert("EventoYaExiste", "EventManager");
+    if (p.fechaHora <= now()) revert("FechaInvalida", "EventManager");
+    if (p.capacidad === 0) revert("CapacidadInvalida", "EventManager");
+    if (p.precioBase === 0n) revert("PrecioInvalido", "EventManager");
+    if (!U.isAddress(p.artista) || !U.isAddress(p.plataforma) || /^0x0{40}$/i.test(p.artista) || /^0x0{40}$/i.test(p.plataforma)) revert("DireccionInvalida", "EventManager");
+    if (p.regaliaBps + p.comisionBps >= 10000) revert("SumaPorcentajesInvalida", "EventManager");
+    if (p.limitePorPersona === 0) revert("LimitePorPersonaInvalido", "EventManager");
+    S.eventos[p.idEvento] = { ...p, organizador: m.from, vendidas: 0, estado: "Programado", custodia: 0n, historial: [{ estado: "Programado", ts: now(), tx: m.hash }] };
+    S.selEvento = p.idEvento;
+    return [ev("EventManager", "EventoCreado", { idEvento: p.idEvento, nombre: p.nombre, organizador: m.from, precioBase: p.precioBase, capacidad: p.capacidad })];
+  },
+  comprarEntrada(m, idEvento, compromiso, firma) {
+    const e = S.eventos[idEvento];
+    if (!e) revert("EventoInexistente", "EventManager");
+    if (e.estado !== "Programado") revert("EventoNoProgramado", "EventManager");
+    if (now() >= e.fechaHora) revert("FueraDeTermino", "EventManager");
+    if (e.vendidas >= e.capacidad) revert("CapacidadAgotada", "EventManager");
+    if (m.value !== e.precioBase) revert("MontoIncorrecto", "EventManager");
+    const firmante = recuperar(DOM_EM(), T_VERIF, { compromiso, comprador: m.from, idEvento }, firma, "EventManager");
+    if (!hasRole(firmante, "VERIFICADOR_ROLE")) revert("FirmaInvalida", "EventManager");
+    const k = idEvento + ":" + compromiso;
+    if ((S.porPersona[k] || 0) >= e.limitePorPersona) revert("LimitePorPersonaExcedido", "EventManager");
+    // efectos
+    S.porPersona[k] = (S.porPersona[k] || 0) + 1;
+    e.vendidas += 1; e.custodia += m.value;
+    const tokenId = S.nextTokenId++;
+    S.entradas[tokenId] = {
+      tokenId, idEvento, precioOriginal: e.precioBase, compromiso, cantTransferencias: 0, estado: "Asignada",
+      fechaEmision: now(), fechaValidacion: 0, owner: m.from, royalty: { receiver: e.artista, bps: e.regaliaBps },
+      historial: [{ estado: "Asignada", ts: now(), tx: m.hash }],
+    };
+    S.selToken = tokenId; S.selEvento = idEvento;
+    return { result: tokenId, events: [
+      ev("EntradaNFT", "Transfer", { from: U.hexZeroPad("0x0", 20), to: m.from, tokenId }),
+      ev("EntradaNFT", "EntradaEmitida", { idEvento, tokenId, titular: m.from, compromiso }),
+      ev("EventManager", "EntradaComprada", { idEvento, tokenId, comprador: m.from, compromiso }),
+    ] };
+  },
+  cancelarEvento(m, idEvento) {
+    onlyRole(m, "ORACULO_ROLE", "EventManager");
+    const e = S.eventos[idEvento];
+    if (!e) revert("EventoInexistente", "EventManager");
+    if (e.estado !== "Programado") revert("EventoNoProgramado", "EventManager");
+    if (now() >= e.fechaHora) revert("FueraDeTermino", "EventManager");
+    e.estado = "Cancelado"; e.historial.push({ estado: "Cancelado", ts: now(), tx: m.hash });
+    S.selEvento = idEvento;
+    return [ev("EventManager", "EventoCancelado", { idEvento })];
+  },
+  cerrarEvento(m, idEvento) {
+    onlyRole(m, "ORACULO_ROLE", "EventManager");
+    const e = S.eventos[idEvento];
+    if (!e) revert("EventoInexistente", "EventManager");
+    if (e.estado !== "Programado") revert("EventoNoProgramado", "EventManager");
+    if (now() < e.fechaHora + MARGEN_CIERRE) revert("FueraDeTermino", "EventManager");
+    e.estado = "Finalizado"; e.historial.push({ estado: "Finalizado", ts: now(), tx: m.hash });
+    const lib = e.custodia; e.custodia = 0n; credit(e.organizador, lib);
+    S.selEvento = idEvento;
+    return [ev("EventManager", "EventoCerrado", { idEvento, organizador: e.organizador, balanceLiberado: lib }), ev("EventManager", "SaldoAcreditado", { beneficiario: e.organizador, monto: lib })];
+  },
+  reclamarReembolso(m, tokenId) {
+    const t = S.entradas[tokenId];
+    if (!t) revert("TokenNoExiste", "EntradaNFT");
+    const e = S.eventos[t.idEvento];
+    if (e.estado !== "Cancelado") revert("EventoNoProgramado", "EventManager");
+    if (t.estado === "Reembolsada") revert("YaReembolsada", "EventManager");
+    if (t.estado === "Utilizada") revert("EntradaNoValidaParaIngreso", "EventManager");
+    const evs = [];
+    if (t.estado === "Asignada") {
+      if (lc(m.from) !== lc(t.owner)) revert("NoEsTitular", "EventManager");
+    } else {
+      const vendedor = Marketplace.obtenerVendedorDeToken(tokenId);
+      if (!vendedor || lc(m.from) !== lc(vendedor)) revert("NoEsTitular", "EventManager");
+      evs.push(...Marketplace._cerrarPorReembolso(m, tokenId));
+    }
+    marcarEntrada(t, "Reembolsada", m);
+    e.custodia -= t.precioOriginal; credit(m.from, t.precioOriginal);
+    S.selToken = tokenId;
+    return [...evs, ev("EntradaNFT", "EstadoEntradaCambiado", { tokenId, nuevoEstado: "Reembolsada" }), ev("EventManager", "ReembolsoReclamado", { tokenId, titular: m.from, monto: t.precioOriginal }), ev("EventManager", "SaldoAcreditado", { beneficiario: m.from, monto: t.precioOriginal })];
+  },
+  retirarFondos(m) {
+    const k = lc(m.from); const monto = S.saldos[k] || 0n;
+    if (monto === 0n) revert("SinSaldo", "EventManager");
+    S.saldos[k] = 0n; S.bal[k] = (S.bal[k] || 0n) + monto;
+    return [ev("EventManager", "FondosRetirados", { beneficiario: m.from, monto })];
+  },
+};
+
+const EntradaNFT = {
+  transferFrom(m, from, to, tokenId) {
+    // Hook _update: transferencia entre billeteras sin OPERADOR_ROLE -> bloqueada.
+    revert("TransferenciaDirectaBloqueada", "EntradaNFT");
+  },
+  approve(m, to, tokenId) { revert("TransferenciaDirectaBloqueada", "EntradaNFT"); },
+  validarIngreso(m, tokenId, compromisoPresentado, timestamp, firma) {
+    onlyRole(m, "VALIDADOR_ROLE", "EntradaNFT");
+    const t = S.entradas[tokenId];
+    if (!t) revert("TokenNoExiste", "EntradaNFT");
+    if (t.estado !== "Asignada") revert("EntradaNoValidaParaIngreso", "EntradaNFT");
+    if (S.eventos[t.idEvento].estado !== "Programado") revert("EventoNoProgramado", "EntradaNFT");
+    if (t.compromiso !== compromisoPresentado) revert("CompromisoNoCoincide", "EntradaNFT");
+    if (now() > timestamp + VENTANA_QR || timestamp > now() + 5) revert("QRExpirado", "EntradaNFT");
+    const firmante = recuperar(DOM_NFT(), T_ACCESO, { tokenId, timestamp }, firma, "EntradaNFT");
+    if (lc(firmante) !== lc(t.owner)) revert("FirmaInvalida", "EntradaNFT");
+    marcarEntrada(t, "Utilizada", m); t.fechaValidacion = now();
+    S.selToken = tokenId; S.selEvento = t.idEvento;
+    return [ev("EntradaNFT", "IngresoValidado", { tokenId, titular: t.owner, timestamp: now() }), ev("EntradaNFT", "EstadoEntradaCambiado", { tokenId, nuevoEstado: "Utilizada" })];
+  },
+};
+
+const Marketplace = {
+  obtenerVendedorDeToken(tokenId) { const id = S.tokenAPub[tokenId]; return id ? S.pubs[id].vendedor : null; },
+  precioMax(t) { const e = S.eventos[t.idEvento]; return (t.precioOriginal * BigInt(10000 + e.topeBps)) / 10000n; },
+  publicarReventa(m, tokenId, precio) {
+    const t = S.entradas[tokenId];
+    if (!t) revert("ERC721NonexistentToken", "EntradaNFT", "ERC721NonexistentToken(uint256)");
+    if (lc(t.owner) !== lc(m.from)) revert("NoEsTitular", "ReventaMarketplace");
+    if (t.estado !== "Asignada") revert("EntradaNoValidaParaIngreso", "ReventaMarketplace");
+    const e = S.eventos[t.idEvento];
+    if (e.estado !== "Programado") revert("EventoNoProgramado", "ReventaMarketplace");
+    if (now() >= e.fechaHora) revert("FueraDeTermino", "ReventaMarketplace");
+    if (t.cantTransferencias >= e.maxTransferencias) revert("MaxTransferenciasAlcanzado", "ReventaMarketplace");
+    if (precio > this.precioMax(t)) revert("PrecioSuperaTope", "ReventaMarketplace");
+    t.owner = ADDR.ReventaMarketplace; marcarEntrada(t, "EnReventa", m);
+    const id = S.nextPub++;
+    S.pubs[id] = { id, tokenId, vendedor: m.from, precio, fecha: now(), estado: "Activa" };
+    S.tokenAPub[tokenId] = id; S.selToken = tokenId;
+    return { result: id, events: [
+      ev("EntradaNFT", "Transfer", { from: m.from, to: ADDR.ReventaMarketplace, tokenId }),
+      ev("EntradaNFT", "EstadoEntradaCambiado", { tokenId, nuevoEstado: "EnReventa" }),
+      ev("ReventaMarketplace", "ReventaPublicada", { idPublicacion: id, idToken: tokenId, vendedor: m.from, precioReventa: precio }),
+    ] };
+  },
+  retirarPublicacion(m, idPub) {
+    const p = S.pubs[idPub];
+    if (!p || p.estado !== "Activa") revert("PublicacionNoActiva", "ReventaMarketplace");
+    if (lc(m.from) !== lc(p.vendedor)) revert("NoEsTitular", "ReventaMarketplace");
+    p.estado = "Retirada"; delete S.tokenAPub[p.tokenId];
+    const t = S.entradas[p.tokenId]; marcarEntrada(t, "Asignada", m); t.owner = p.vendedor; S.selToken = t.tokenId;
+    return [ev("EntradaNFT", "EstadoEntradaCambiado", { tokenId: p.tokenId, nuevoEstado: "Asignada" }), ev("EntradaNFT", "Transfer", { from: ADDR.ReventaMarketplace, to: p.vendedor, tokenId: p.tokenId }), ev("ReventaMarketplace", "PublicacionRetirada", { idPublicacion: idPub, idToken: p.tokenId })];
+  },
+  split(p) {
+    const t = S.entradas[p.tokenId], e = S.eventos[t.idEvento];
+    const regalia = (p.precio * BigInt(t.royalty.bps)) / 10000n;
+    const comision = (p.precio * BigInt(e.comisionBps)) / 10000n;
+    return { regalia, comision, neto: p.precio - regalia - comision, artista: t.royalty.receiver, plataforma: e.plataforma };
+  },
+  revenderEntrada(m, idPub, nuevoCompromiso, firma) {
+    const p = S.pubs[idPub];
+    if (!p || p.estado !== "Activa") revert("PublicacionNoActiva", "ReventaMarketplace");
+    if (m.value !== p.precio) revert("MontoIncorrecto", "ReventaMarketplace");
+    const t = S.entradas[p.tokenId], e = S.eventos[t.idEvento];
+    if (e.estado !== "Programado") revert("EventoNoProgramado", "ReventaMarketplace");
+    if (now() >= e.fechaHora) revert("FueraDeTermino", "ReventaMarketplace");
+    // EventManager.registrarTransferenciaIdentidad
+    const firmante = recuperar(DOM_EM(), T_VERIF, { compromiso: nuevoCompromiso, comprador: m.from, idEvento: t.idEvento }, firma, "EventManager");
+    if (!hasRole(firmante, "VERIFICADOR_ROLE")) revert("FirmaInvalida", "EventManager");
+    const kc = t.idEvento + ":" + nuevoCompromiso, kv = t.idEvento + ":" + t.compromiso;
+    if ((S.porPersona[kc] || 0) >= e.limitePorPersona) revert("LimitePorPersonaExcedido", "EventManager");
+    // efectos
+    if ((S.porPersona[kv] || 0) > 0) S.porPersona[kv] -= 1;
+    S.porPersona[kc] = (S.porPersona[kc] || 0) + 1;
+    const sp = this.split(p);
+    const evs = [];
+    if (sp.regalia > 0n) { credit(sp.artista, sp.regalia); evs.push(ev("EventManager", "SaldoAcreditado", { beneficiario: sp.artista, monto: sp.regalia })); }
+    if (sp.comision > 0n) { credit(sp.plataforma, sp.comision); evs.push(ev("EventManager", "SaldoAcreditado", { beneficiario: sp.plataforma, monto: sp.comision })); }
+    if (sp.neto > 0n) { credit(p.vendedor, sp.neto); evs.push(ev("EventManager", "SaldoAcreditado", { beneficiario: p.vendedor, monto: sp.neto })); }
+    p.estado = "Vendida"; p.comprador = m.from; delete S.tokenAPub[p.tokenId];
+    t.compromiso = nuevoCompromiso; t.cantTransferencias += 1;
+    marcarEntrada(t, "Asignada", m); t.owner = m.from; S.selToken = t.tokenId;
+    return [...evs,
+      ev("EntradaNFT", "CompromisoActualizado", { tokenId: t.tokenId, nuevoCompromiso, cantTransferencias: t.cantTransferencias }),
+      ev("EntradaNFT", "EstadoEntradaCambiado", { tokenId: t.tokenId, nuevoEstado: "Asignada" }),
+      ev("EntradaNFT", "Transfer", { from: ADDR.ReventaMarketplace, to: m.from, tokenId: t.tokenId }),
+      ev("ReventaMarketplace", "EntradaRevendida", { idPublicacion: idPub, idToken: t.tokenId, vendedor: p.vendedor, comprador: m.from, precio: p.precio })];
+  },
+  _cerrarPorReembolso(m, tokenId) {
+    const id = S.tokenAPub[tokenId]; if (!id) return [];
+    S.pubs[id].estado = "Retirada"; delete S.tokenAPub[tokenId];
+    S.entradas[tokenId].owner = S.pubs[id].vendedor;
+    return [ev("EntradaNFT", "Transfer", { from: ADDR.ReventaMarketplace, to: S.pubs[id].vendedor, tokenId })];
+  },
+};
+
+const GAS = { crearEvento: 268000, comprarEntrada: 236000, cancelarEvento: 31000, cerrarEvento: 58000, reclamarReembolso: 79000, retirarFondos: 34000, transferFrom: 27000, approve: 25000, validarIngreso: 71000, publicarReventa: 121000, retirarPublicacion: 64000, revenderEntrada: 214000 };
+
+/* ------------------------------ ejecución de transacciones ------------------------------ */
+// Ejecuta una tx simulada. Si el contrato revierte, el estado queda intacto (las validaciones van antes de los efectos).
+function ejecutar({ fromKey, contrato, fn, args = [], value = 0n, run, silent }) {
+  const from = addrOf(fromKey);
+  const hash = randHash();
+  S.block += 1 + Math.floor(Math.random() * 3);
+  const m = { from, value, hash };
+  const tx = { hash, block: S.block, ts: now(), fromKey, contrato, fn, args, value, status: "ok", events: [], gas: Math.round((GAS[fn] || 50000) * (0.94 + Math.random() * 0.1)) };
+  const k = lc(from);
+  if ((S.bal[k] || 0n) < value) {
+    return { ok: false, wallet: true, msg: `Saldo insuficiente en la billetera: tenés ${POL(S.bal[k])} y la operación necesita ${POL(value)}.` };
+  }
+  try {
+    const r = run(m);
+    tx.events = Array.isArray(r) ? r : r.events; tx.result = Array.isArray(r) ? undefined : r.result;
+    S.bal[k] -= value;
+  } catch (err) {
+    if (!(err instanceof Revert)) throw err;
+    tx.status = "revert"; tx.error = err; tx.gas = Math.round(tx.gas * 0.32);
+  }
+  S.txs.unshift(tx);
+  if (!silent) S.lastTx = hash;
+  return { ok: tx.status === "ok", tx };
+}
+
+function logFirma(fromKey, tipo, detalle, firma) {
+  S.txs.unshift({ kind: "firma", hash: firma, ts: now(), fromKey, tipo, detalle });
+  S.lastTx = firma;
+}
+
+// Flujo completo con confirmación en la billetera y "minado".
+async function enviarTx(opts) {
+  const confirmado = S.autoConfirm ? true : await walletConfirm(opts);
+  if (!confirmado) { toast("Rechazaste la transacción en la billetera.", ""); return { ok: false, rejected: true }; }
+  showPending(opts);
+  await wait(650 + Math.random() * 500);
+  closeWallet();
+  const r = ejecutar(opts);
+  if (r.wallet) { toast(r.msg, "bad"); render(); return r; }
+  if (r.ok) toast(`✓ ${opts.fn} confirmada en el bloque ${r.tx.block.toLocaleString("es-AR")}`, "ok");
+  else toast(`✗ ${opts.fn} revertida: ${r.tx.error.errName}`, "bad");
+  render();
+  return r;
+}
+
+/* ------------------------------ billetera (modal) ------------------------------ */
+let walletResolve = null;
+function walletConfirm(o) {
+  const p = W[o.fromKey].perfil, gas = GAS[o.fn] || 50000;
+  const argRows = (o.args || []).map(([k, v]) => `<div><span>${esc(k)}</span><b class="mono">${esc(v)}</b></div>`).join("");
+  $("#walletRoot").innerHTML = `
+  <div class="overlay top" role="dialog" aria-modal="true" aria-label="Confirmar transacción">
+    <div class="modal wallet-sheet">
+      <div class="modal-head">
+        ${avatar(p, 36)}
+        <div><h3>Confirmar transacción</h3><p class="muted" style="font-size:12px">${esc(p.nombre)} · <span class="mono">${short(addrOf(o.fromKey))}</span></p></div>
+        <span class="net x" style="margin-left:auto">Amoy</span>
+      </div>
+      <div class="modal-body">
+        <div class="box chain">
+          <div class="row between"><span class="chip">Contrato</span><span class="mono">${short(ADDR[o.contrato])}</span></div>
+          <div class="fn mono" style="font-size:15px;font-weight:600">${esc(o.contrato)}.${esc(o.fn)}()</div>
+        </div>
+        ${argRows ? `<div class="kvrows">${argRows}</div>` : ""}
+        <div class="kvrows">
+          <div><span>Valor enviado</span><b>${POL(o.value || 0n)}</b></div>
+          <div><span>Gas estimado</span><b class="num">${gas.toLocaleString("es-AR")} · ~${(gas * 32e-9).toLocaleString("es-AR", { maximumFractionDigits: 5 })} POL</b></div>
+          <div><span>Saldo disponible</span><b>${POL(S.bal[lc(addrOf(o.fromKey))])}</b></div>
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button class="btn" type="button" id="wRej">Rechazar</button>
+        <button class="btn primary" type="button" id="wOk">Confirmar</button>
+      </div>
+    </div>
+  </div>`;
+  return new Promise((res) => {
+    walletResolve = res;
+    $("#wRej").onclick = () => { closeWallet(); res(false); };
+    $("#wOk").onclick = () => res(true);
+    $("#wOk").focus();
+  });
+}
+function showPending(o) {
+  const m = $("#walletRoot .modal");
+  const html = `<div class="modal-body" style="text-align:center;padding:30px 18px"><div class="spinner"></div><h3>Enviando ${esc(o.fn)}…</h3><p class="muted">Esperando que la transacción se incluya en un bloque.</p></div>`;
+  if (m) m.innerHTML = html;
+  else $("#walletRoot").innerHTML = `<div class="overlay top"><div class="modal wallet-sheet">${html}</div></div>`;
+}
+function closeWallet() { $("#walletRoot").innerHTML = ""; }
+
+/* ------------------------------ toasts ------------------------------ */
+function toast(msg, kind) {
+  const el = document.createElement("div");
+  el.className = "toast " + (kind || "");
+  el.textContent = msg;
+  $("#toasts").appendChild(el);
+  setTimeout(() => el.remove(), 4200);
+}
+
+/* ------------------------------ navegación ------------------------------ */
+const VIEWS = [
+  { id: "organizador", label: "Organizador", para: ["Organizador", "Oráculo"], sugerida: "org" },
+  { id: "cartelera", label: "Cartelera", para: ["Fan"], sugerida: "ana" },
+  { id: "mis-entradas", label: "Mis entradas", para: ["Fan"], sugerida: "ana" },
+  { id: "reventa", label: "Reventa", para: ["Fan"], sugerida: "ana" },
+  { id: "puerta", label: "Puerta", para: ["Validador"], sugerida: "puerta" },
+  { id: "fondos", label: "Fondos", para: null, sugerida: null },
+];
+function go(id) { if (!VIEWS.find((v) => v.id === id)) id = "organizador"; S.view = id; try { history.replaceState(null, "", "#" + id); } catch {} render(true); }
+window.addEventListener("hashchange", () => { const h = location.hash.slice(1); if (S && h && h !== S.view) go(h); });
+function setWallet(key) { S.cur = key; closeWallet(); render(true); toast(`Billetera conectada: ${W[key].perfil.nombre}`, ""); }
+
+function misEntradas(addr) {
+  return Object.values(S.entradas).filter((t) => lc(t.owner) === lc(addr) || (t.estado === "EnReventa" && lc(Marketplace.obtenerVendedorDeToken(t.tokenId) || "") === lc(addr)));
+}
+
+function renderTabs() {
+  const n = misEntradas(cur().address).length, pubs = Object.values(S.pubs).filter((p) => p.estado === "Activa").length;
+  $("#tabs").innerHTML = VIEWS.map((v) => {
+    const c = v.id === "mis-entradas" && n ? `<span class="count">${n}</span>` : v.id === "reventa" && pubs ? `<span class="count">${pubs}</span>` : "";
+    return `<button class="tab" role="tab" type="button" aria-selected="${S.view === v.id}" data-go="${v.id}">${v.label}${c}</button>`;
+  }).join("");
+}
+function renderWalletBtn() {
+  const p = cur().perfil;
+  $("#walletBtn").innerHTML = `${avatar(p)}<span class="who"><b>${esc(p.nombre)}</b><span><span class="mono">${short(cur().address)}</span> · ${POL(S.bal[lc(cur().address)], 2)}</span></span>`;
+}
+function renderBanner() {
+  const v = VIEWS.find((x) => x.id === S.view), p = cur().perfil;
+  if (!v.para || v.para.includes(p.rol)) { $("#banner").innerHTML = ""; return; }
+  const sug = W[v.sugerida].perfil;
+  $("#banner").innerHTML = `<div class="banner"><span>Estás conectado como <b>${esc(p.nombre)}</b> (${esc(p.rol)}). Esta vista es para el rol <b>${esc(v.para.join(" / "))}</b>. Podés operar igual para ver cómo responde el contrato.</span><span class="spacer"></span><button class="btn small dark" type="button" data-wallet="${sug.key}">Conectar ${esc(sug.nombre)}</button></div>`;
+}
+
+function openWalletPicker() {
+  $("#walletRoot").innerHTML = `
+  <div class="overlay top" role="dialog" aria-modal="true" aria-label="Elegir billetera" data-close>
+    <div class="modal wallet-sheet">
+      <div class="modal-head"><div><h3>Conectar billetera</h3><p class="muted" style="font-size:12px">Cuentas de prueba derivadas del mnemónico de Hardhat. Cada una tiene un rol distinto en los contratos.</p></div><button class="btn ghost small x" type="button" data-close>Cerrar</button></div>
+      <div class="modal-body"><div class="wallet-list">
+        ${PERFILES.map((p) => `<button type="button" class="wallet-item ${p.key === S.cur ? "on" : ""}" data-wallet="${p.key}">${avatar(p)}<span><b>${esc(p.nombre)}</b><small><span class="mono">${short(W[p.key].address)}</span> · ${esc(p.roles[0] || p.rol)}</small></span><span class="num" style="font-size:12px">${POL(S.bal[lc(W[p.key].address)], 2)}</span></button>`).join("")}
+      </div></div>
+    </div>
+  </div>`;
+}
+
+/* ------------------------------ vistas ------------------------------ */
+function estadoPill(e) {
+  const map = { Programado: "p-ok", Finalizado: "p-mute", Cancelado: "p-bad", Asignada: "p-ok", "En reventa": "p-warn", Utilizada: "p-chain", Reembolsada: "p-bad", Vencida: "p-mute", Activa: "p-warn", Vendida: "p-ok", Retirada: "p-mute" };
+  return `<span class="pill ${map[e] || "p-mute"}">${esc(e)}</span>`;
+}
+function eventoSub(e) {
+  if (e.estado === "Programado" && now() >= e.fechaHora) return now() >= e.fechaHora + MARGEN_CIERRE ? "listo para cierre" : "en curso";
+  return "";
+}
+
+/* ---- Organizador ---- */
+let formDraft = null;
+function defaultDraft() {
+  const ids = Object.keys(S.eventos).map(Number);
+  const d = new Date((now() + 21 * 86400) * 1000); d.setHours(21, 0, 0, 0);
+  const pad = (n) => String(n).padStart(2, "0");
+  return {
+    f_id: String((ids.length ? Math.max(...ids) : 0) + 1), f_nombre: "Sierras Sónicas — Noche de cierre", f_tipo: "Recital",
+    f_fecha: `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`,
+    f_lugar: "Estadio Mario A. Kempes, Córdoba", f_artista: "artista", f_artistaCustom: "", f_plataforma: "plataforma",
+    f_precio: "18", f_capacidad: "5000", f_tope: "20", f_regalia: "5", f_comision: "3", f_limite: "4", f_maxTr: "2", f_admision: false,
+  };
+}
+function leerDraft() {
+  const d = {};
+  for (const el of document.querySelectorAll("#fEvento [id^=f_]")) d[el.id] = el.type === "checkbox" ? el.checked : el.value;
+  return d;
+}
+function parseDraft(d) {
+  const errs = {}, fmt = {};
+  let contrato = null;
+  const num = (v) => (String(v).trim() === "" ? NaN : Number(v));
+  const id = num(d.f_id);
+  if (!Number.isInteger(id) || id < 1) fmt.f_id = "Ingresá un número entero ≥ 1.";
+  else if (S.eventos[id]) { errs.f_id = "Ya existe un evento con ese ID."; contrato = contrato || "EventoYaExiste"; }
+  if (!d.f_nombre.trim()) fmt.f_nombre = "El nombre es obligatorio.";
+  else if (d.f_nombre.length > 80) fmt.f_nombre = "Máximo 80 caracteres.";
+  if (!d.f_lugar.trim()) fmt.f_lugar = "Indicá el lugar.";
+  const fecha = d.f_fecha ? Math.floor(new Date(d.f_fecha).getTime() / 1000) : NaN;
+  if (!Number.isFinite(fecha)) fmt.f_fecha = "Elegí fecha y hora.";
+  else if (fecha <= now()) { errs.f_fecha = "La fecha ya pasó según el reloj de la cadena."; contrato = contrato || "FechaInvalida"; }
+  const cap = num(d.f_capacidad);
+  if (!Number.isInteger(cap) || cap < 0 || cap > 4294967295) fmt.f_capacidad = "Entero entre 0 y 4.294.967.295.";
+  else if (cap === 0) { errs.f_capacidad = "La capacidad tiene que ser mayor a 0."; contrato = contrato || "CapacidadInvalida"; }
+  let precio = null;
+  if (!/^\d+(\.\d{1,18})?$/.test(d.f_precio.trim())) fmt.f_precio = "Usá un número con punto decimal (ej. 18.5).";
+  else { precio = toWei(d.f_precio.trim()); if (precio === 0n) { errs.f_precio = "El precio tiene que ser mayor a 0."; contrato = contrato || "PrecioInvalido"; } }
+  let artista = d.f_artista === "otra" ? d.f_artistaCustom.trim() : d.f_artista ? addrOf(d.f_artista) : "";
+  if (d.f_artista === "otra" && !U.isAddress(artista)) { errs.f_artista = "Dirección inválida (0x + 40 hex)."; contrato = contrato || "DireccionInvalida"; }
+  if (d.f_artista === "otra" && U.isAddress(artista) && /^0x0{40}$/i.test(artista)) { errs.f_artista = "No puede ser la dirección cero."; contrato = contrato || "DireccionInvalida"; }
+  const plataforma = addrOf(d.f_plataforma);
+  const bps = (v, key, max) => { const n = num(v); if (!Number.isFinite(n) || n < 0 || n > max) { fmt[key] = `Entre 0 y ${max} %.`; return null; } return Math.round(n * 100); };
+  const topeBps = bps(d.f_tope, "f_tope", 655), regaliaBps = bps(d.f_regalia, "f_regalia", 100), comisionBps = bps(d.f_comision, "f_comision", 100);
+  if (regaliaBps != null && comisionBps != null && regaliaBps + comisionBps >= 10000) { errs.f_comision = "Regalía + comisión deben sumar menos de 100 %."; contrato = contrato || "SumaPorcentajesInvalida"; }
+  const lim = num(d.f_limite), maxTr = num(d.f_maxTr);
+  if (!Number.isInteger(lim) || lim < 0 || lim > 255) fmt.f_limite = "Entero entre 0 y 255.";
+  else if (lim === 0) { errs.f_limite = "Tiene que ser al menos 1."; contrato = contrato || "LimitePorPersonaInvalido"; }
+  if (!Number.isInteger(maxTr) || maxTr < 0 || maxTr > 255) fmt.f_maxTr = "Entero entre 0 y 255.";
+  // El contrato revierte con el primer require que falla: primero AccessControl, después el orden de los if.
+  const ordenContrato = ["EventoYaExiste", "FechaInvalida", "CapacidadInvalida", "PrecioInvalido", "DireccionInvalida", "SumaPorcentajesInvalida", "LimitePorPersonaInvalido"];
+  contrato = ordenContrato.find((n) => Object.keys(errs).some((k) => mapErr[k] === n)) || null;
+  if (!hasRole(cur().address, "ORGANIZADOR_ROLE")) contrato = "AccessControlUnauthorizedAccount";
+  return {
+    fmt, errs, contrato,
+    p: { idEvento: id, nombre: d.f_nombre.trim(), tipo: d.f_tipo, fechaHora: fecha, lugar: d.f_lugar.trim(), artista, plataforma, precioBase: precio, capacidad: cap, topeBps, regaliaBps, comisionBps, limitePorPersona: lim, maxTransferencias: maxTr, requiereAdmision: !!d.f_admision },
+  };
+}
+const mapErr = { f_id: "EventoYaExiste", f_fecha: "FechaInvalida", f_capacidad: "CapacidadInvalida", f_precio: "PrecioInvalido", f_artista: "DireccionInvalida", f_comision: "SumaPorcentajesInvalida", f_limite: "LimitePorPersonaInvalido" };
+
+function viewOrganizador() {
+  if (!formDraft) formDraft = defaultDraft();
+  const d = formDraft;
+  const walletOpts = (sel, keys) => keys.map((k) => `<option value="${k}" ${sel === k ? "selected" : ""}>${esc(W[k].perfil.nombre)} · ${short(addrOf(k))}</option>`).join("");
+  const f = (id, label, input, hint) => `<div class="field ${id === "f_nombre" || id === "f_lugar" ? "full" : ""}"><label for="${id}">${label}</label>${input}<span class="err" data-err="${id}"></span>${hint ? `<span class="hint">${hint}</span>` : ""}</div>`;
+  const inp = (id, type = "text", extra = "") => `<input class="input" id="${id}" type="${type}" value="${esc(d[id])}" ${extra}>`;
+  const suf = (id, s, extra = "") => `<div class="suffix">${inp(id, "text", `inputmode="decimal" ${extra}`)}<span>${s}</span></div>`;
+  return `
+  <div class="view-head"><h1>Crear evento</h1><p>Cada campo se convierte en una regla que el contrato <span class="mono">EventManager</span> hace cumplir. Si algo no pasa la validación, el contrato revierte la transacción.</p></div>
+  <div class="org-grid">
+    <form class="card form" id="fEvento" novalidate>
+      <div class="legend">Datos del evento</div>
+      <div class="fieldset">
+        ${f("f_id", "ID del evento", inp("f_id", "text", 'inputmode="numeric"'), "uint256 · único")}
+        ${f("f_tipo", "Tipo", `<select class="input" id="f_tipo">${TIPOS.map((t) => `<option value="${t}" ${d.f_tipo === t ? "selected" : ""}>${TIPO_LABEL[t]}</option>`).join("")}</select>`)}
+        ${f("f_nombre", "Nombre", inp("f_nombre", "text", 'maxlength="90"'))}
+        ${f("f_fecha", "Fecha y hora", inp("f_fecha", "datetime-local"), "Tiene que ser posterior al reloj de la cadena")}
+        ${f("f_capacidad", "Capacidad", inp("f_capacidad", "text", 'inputmode="numeric"'), "uint32 · entradas totales")}
+        ${f("f_lugar", "Lugar", inp("f_lugar"))}
+      </div>
+      <div class="legend">Precio y reventa</div>
+      <div class="fieldset">
+        ${f("f_precio", "Precio base", suf("f_precio", "POL"), "Se cobra exacto: ni más ni menos")}
+        ${f("f_tope", "Tope de reventa", suf("f_tope", "%"), "Sobre el precio original (Ley CABA 5174)")}
+        ${f("f_regalia", "Regalía del artista", suf("f_regalia", "%"), "ERC-2981 en cada reventa")}
+        ${f("f_comision", "Comisión de la plataforma", suf("f_comision", "%"), "Sobre cada reventa")}
+      </div>
+      <div class="legend">Beneficiarios</div>
+      <div class="fieldset">
+        ${f("f_artista", "Billetera del artista", `<select class="input" id="f_artista">${walletOpts(d.f_artista, ["artista", "org", "plataforma"])}<option value="otra" ${d.f_artista === "otra" ? "selected" : ""}>Otra dirección…</option></select>`)}
+        ${f("f_plataforma", "Billetera de la plataforma", `<select class="input" id="f_plataforma">${walletOpts(d.f_plataforma, ["plataforma", "org"])}</select>`)}
+        <div class="field full" id="artistaCustomWrap" ${d.f_artista === "otra" ? "" : "hidden"}><label for="f_artistaCustom">Dirección del artista</label>${inp("f_artistaCustom", "text", 'placeholder="0x…" spellcheck="false"')}</div>
+      </div>
+      <div class="legend">Control de identidad</div>
+      <div class="fieldset">
+        ${f("f_limite", "Entradas por persona (DNI)", inp("f_limite", "text", 'inputmode="numeric"'), "Se controla por compromiso, no por billetera")}
+        ${f("f_maxTr", "Reventas máximas por entrada", inp("f_maxTr", "text", 'inputmode="numeric"'))}
+        <label class="check full" for="f_admision"><input type="checkbox" id="f_admision" ${d.f_admision ? "checked" : ""}><span><b>Requiere derecho de admisión</b><br><span class="muted" style="font-size:12px">Tribuna Segura rechaza la verificación de DNIs con restricción vigente (Ley 23.184).</span></span></label>
+      </div>
+      <div class="form-foot">
+        <div id="fContractNote"></div>
+        <button class="btn primary block" type="submit" id="fSubmit">Crear evento en la blockchain</button>
+      </div>
+    </form>
+    <div class="list">
+      <div id="evPreview"></div>
+      <div class="card"><h3>Reglas que quedan grabadas</h3><div class="rules" id="evRules"></div></div>
+    </div>
+  </div>
+  <div class="section-title"><h2>Eventos en cadena</h2><span class="muted" style="font-size:12px">Cancelar y cerrar requieren <span class="mono">ORACULO_ROLE</span>. Tocá una fila para ver sus estados.</span></div>
+  <div id="evTable">${tablaEventos()}</div>`;
+}
+function posterArt(e) {
+  const [a, b] = TIPO_COLOR[e.tipo] || TIPO_COLOR.Recital;
+  const ts = Number.isFinite(e.fechaHora) ? e.fechaHora : now();
+  const dd = new Date(ts * 1000);
+  return `<div class="art" style="background:linear-gradient(125deg, ${a}, ${b})">
+    <div class="row between"><span class="chip" style="background:rgba(255,255,255,.2);color:#fff">${TIPO_LABEL[e.tipo] || e.tipo}</span>${e.idEvento ? `<span class="mono" style="opacity:.85">#${esc(e.idEvento)}</span>` : ""}</div>
+    <div class="date">${dd.getDate()}<small>${dd.toLocaleDateString("es-AR", { month: "long" })} · ${dd.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })} h</small></div></div>`;
+}
+function actualizarFormOrg() {
+  formDraft = leerDraft();
+  const r = parseDraft(formDraft);
+  for (const el of document.querySelectorAll("#fEvento [data-err]")) {
+    const k = el.dataset.err, msg = r.fmt[k] || r.errs[k];
+    el.innerHTML = msg ? esc(msg) + (r.errs[k] && !r.fmt[k] ? ` <span class="mono">→ ${mapErr[k]}()</span>` : "") : "";
+    $("#" + k)?.classList.toggle("bad", !!msg);
+  }
+  $("#artistaCustomWrap").hidden = formDraft.f_artista !== "otra";
+  const hayFmt = Object.keys(r.fmt).length > 0, hayErr = !!r.contrato;
+  const btn = $("#fSubmit");
+  btn.disabled = hayFmt;
+  btn.className = "btn block " + (hayErr ? "warn-send" : "primary");
+  btn.textContent = hayFmt ? "Completá los campos marcados" : hayErr ? `Enviar igual · el contrato va a revertir con ${r.contrato}` : "Crear evento en la blockchain";
+  const sinRol = !hasRole(cur().address, "ORGANIZADOR_ROLE");
+  $("#fContractNote").innerHTML = sinRol ? `<div class="box bad" style="font-size:12.5px">La billetera conectada no tiene <span class="mono">ORGANIZADOR_ROLE</span>: el contrato va a revertir con <span class="mono">AccessControlUnauthorizedAccount</span>.</div>` : "";
+  // preview
+  const p = r.p;
+  const precioTxt = p.precioBase != null ? POL(p.precioBase, 2) : "—";
+  $("#evPreview").innerHTML = `<div class="poster">${posterArt({ ...p })}<div class="body"><h3>${esc(p.nombre || "Nombre del evento")}</h3><p class="muted">${esc(p.lugar || "Lugar")}</p><div class="row between"><span class="price">${precioTxt}</span><span class="muted num">${Number.isInteger(p.capacidad) ? p.capacidad.toLocaleString("es-AR") : "—"} lugares</span></div></div></div>`;
+  const max = p.precioBase != null && p.topeBps != null ? (p.precioBase * BigInt(10000 + p.topeBps)) / 10000n : null;
+  const rules = [
+    ["$", "Reventa máxima por entrada", max != null ? POL(max, 3) : "—", p.topeBps != null ? `Precio base + ${pct(p.topeBps)}` : ""],
+    ["%", "Regalía del artista", p.regaliaBps != null ? pct(p.regaliaBps) : "—", `Se paga a ${nombreDe(p.artista) || "—"}`],
+    ["%", "Comisión de plataforma", p.comisionBps != null ? pct(p.comisionBps) : "—", "Por cada reventa"],
+    ["ID", "Entradas por persona", Number.isInteger(p.limitePorPersona) ? p.limitePorPersona : "—", "Control por compromiso keccak256(DNI, salt)"],
+    ["↻", "Reventas por entrada", Number.isInteger(p.maxTransferencias) ? p.maxTransferencias : "—", "Después queda fija en su titular"],
+    ["✓", "Derecho de admisión", p.requiereAdmision ? "Sí" : "No", "Verificación de Tribuna Segura"],
+    ["⏱", "Liberación de fondos", "fecha + 24 h", "Escrow hasta que el oráculo cierre el evento"],
+  ];
+  $("#evRules").innerHTML = rules.map(([ic, a, b, s]) => `<div class="rule"><span class="ic">${ic}</span><span>${a}<small>${esc(s)}</small></span><b>${esc(b)}</b></div>`).join("");
+}
+async function submitEvento(e) {
+  e.preventDefault();
+  const r = parseDraft(leerDraft());
+  if (Object.keys(r.fmt).length) return;
+  const p = r.p;
+  const res = await enviarTx({
+    fromKey: S.cur, contrato: "EventManager", fn: "crearEvento",
+    args: [["idEvento", p.idEvento], ["nombre", p.nombre], ["tipoEvento", p.tipo], ["fechaHora", p.fechaHora], ["precioBase", POL(p.precioBase)], ["capacidad", p.capacidad], ["topeReventaBps", p.topeBps], ["regaliaArtistaBps", p.regaliaBps], ["comisionPlataformaBps", p.comisionBps], ["limitePorPersona", p.limitePorPersona], ["maxTransferencias", p.maxTransferencias], ["requiereAdmision", p.requiereAdmision]],
+    run: (m) => EventManager.crearEvento(m, p),
+  });
+  if (res.ok) { formDraft = null; render(true); }
+}
+function tablaEventos() {
+  const evs = Object.values(S.eventos).sort((a, b) => a.idEvento - b.idEvento);
+  if (!evs.length) return `<div class="empty">Todavía no hay eventos. Creá el primero con el formulario.</div>`;
+  return `<div class="tbl-wrap"><table><thead><tr><th>ID</th><th>Evento</th><th>Estado</th><th>Fecha</th><th>Vendidas</th><th>En custodia</th><th>Oráculo</th></tr></thead><tbody>
+  ${evs.map((e) => {
+    const sub = eventoSub(e);
+    return `<tr class="clickable ${S.selEvento === e.idEvento ? "sel" : ""}" data-selev="${e.idEvento}">
+      <td class="mono">#${e.idEvento}</td>
+      <td><b>${esc(e.nombre)}</b><br><span class="muted" style="font-size:12px">${TIPO_LABEL[e.tipo]} · ${esc(e.lugar)}</span></td>
+      <td>${estadoPill(e.estado)}${sub ? `<br><span class="muted" style="font-size:11px">${sub}</span>` : ""}</td>
+      <td class="num" style="white-space:nowrap">${fmtFecha(e.fechaHora)}</td>
+      <td class="num" style="min-width:110px">${e.vendidas.toLocaleString("es-AR")} / ${e.capacidad.toLocaleString("es-AR")}<div class="bar" style="margin-top:4px"><i style="width:${Math.min(100, (e.vendidas / e.capacidad) * 100)}%"></i></div></td>
+      <td class="num" style="white-space:nowrap">${POL(e.custodia, 2)}</td>
+      <td><div class="row" style="gap:6px;flex-wrap:nowrap"><button class="btn small danger" type="button" data-cancel="${e.idEvento}">Cancelar</button><button class="btn small" type="button" data-close-ev="${e.idEvento}">Cerrar y liquidar</button></div></td>
+    </tr>`;
+  }).join("")}</tbody></table></div>`;
+}
+async function oraculo(fn, id) {
+  const e = S.eventos[id];
+  await enviarTx({ fromKey: S.cur, contrato: "EventManager", fn, args: [["idEvento", id], ["evento", e.nombre]], run: (m) => EventManager[fn](m, id) });
+}
+
+/* ---- Cartelera ---- */
+function viewCartelera() {
+  const evs = Object.values(S.eventos).sort((a, b) => a.fechaHora - b.fechaHora);
+  if (!evs.length) return `<div class="empty">No hay eventos publicados todavía.<button class="btn dark" type="button" data-go="organizador">Ir al panel del organizador</button></div>`;
+  const id = S.ident[S.cur];
+  return `
+  <div class="view-head"><h1>Cartelera</h1><p>Elegí un evento. La entrada se acuña como NFT a tu nombre en el momento de la compra (lazy minting) y el dinero queda en custodia hasta que el evento se realice.</p></div>
+  ${id ? `<div class="box chain" style="font-size:12.5px"><span>Identidad verificada para esta billetera: <b>${esc(id.nombre)}</b> · compromiso <span class="mono">${shortH(id.compromiso)}</span></span></div>` : ""}
+  <div class="grid-cards">${evs.map(posterCard).join("")}</div>`;
+}
+function posterCard(e) {
+  const quedan = e.capacidad - e.vendidas;
+  const k = S.ident[S.cur] ? e.idEvento + ":" + S.ident[S.cur].compromiso : null;
+  const mias = k ? S.porPersona[k] || 0 : 0;
+  let cta;
+  if (e.estado === "Cancelado") cta = `<span class="pill p-bad">Evento cancelado · reembolsos habilitados</span>`;
+  else if (e.estado === "Finalizado") cta = `<span class="pill p-mute">Evento finalizado</span>`;
+  else if (now() >= e.fechaHora) cta = `<button class="btn" type="button" data-buy="${e.idEvento}">Intentar comprar (venta cerrada)</button>`;
+  else if (quedan <= 0) cta = `<button class="btn" type="button" data-buy="${e.idEvento}">Agotado · intentar igual</button>`;
+  else cta = `<button class="btn primary" type="button" data-buy="${e.idEvento}">Comprar entrada</button>`;
+  return `<article class="poster">${posterArt(e)}<div class="body">
+    <div><h3>${esc(e.nombre)}</h3><p class="muted" style="font-size:12.5px">${esc(e.lugar)}</p></div>
+    <div class="row between"><span class="price">${POL(e.precioBase, 3)}</span>${estadoPill(e.estado)}</div>
+    <div><div class="row between muted" style="font-size:12px"><span class="num">${quedan.toLocaleString("es-AR")} disponibles</span><span>máx. ${e.limitePorPersona} por DNI${mias ? ` · tenés ${mias}` : ""}</span></div><div class="bar" style="margin-top:5px"><i style="width:${Math.min(100, (e.vendidas / e.capacidad) * 100)}%"></i></div></div>
+    <div class="row" style="font-size:11.5px;gap:6px"><span class="chip">Reventa ≤ +${pct(e.topeBps)}</span>${e.requiereAdmision ? `<span class="chip">Tribuna Segura</span>` : ""}<span class="chip">QR dinámico</span></div>
+    <div class="spacer"></div>${cta}</div></article>`;
+}
+
+/* ---- Checkout (primaria y reventa) ---- */
+let CK = null;
+function abrirCheckout(mode, id) {
+  const buyer = S.cur, p = W[buyer].perfil, prev = S.ident[buyer];
+  CK = { mode, id, buyer, step: 1, nombre: prev?.nombre || p.nombre, dni: prev?.dni || p.dni || "", firma: null, firmante: null, error: null, rechazo: null, ataque: { firmaPropia: false, monto: false }, resultado: null, busy: false };
+  renderCheckout();
+}
+function ckEvento() { return CK.mode === "primaria" ? S.eventos[CK.id] : S.eventos[S.entradas[S.pubs[CK.id].tokenId].idEvento]; }
+function ckPrecio() { return CK.mode === "primaria" ? ckEvento().precioBase : S.pubs[CK.id].precio; }
+function ckIdent() {
+  const ok = /^[1-9]\d{6,7}$/.test(CK.dni.trim()) && CK.nombre.trim().length >= 3;
+  if (!ok) return null;
+  const salt = saltPara(CK.dni.trim());
+  return { salt, compromiso: compromisoDe(CK.dni.trim(), salt) };
+}
+function renderCheckout() {
+  if (!CK) { $("#modalRoot").innerHTML = ""; return; }
+  const e = ckEvento(), precio = ckPrecio(), buyerAddr = addrOf(CK.buyer);
+  const steps = ["Identidad", "Verificación", "Pago", "Resultado"];
+  const head = `<div class="modal-head"><div><span class="chip">${CK.mode === "primaria" ? "Compra en boletería oficial" : "Compra en reventa oficial"}</span><h2 style="margin-top:4px">${esc(e.nombre)}</h2><p class="muted" style="font-size:12.5px">${fmtFecha(e.fechaHora)} · ${esc(e.lugar)}</p></div><button class="btn ghost small x" type="button" data-ck-close>Cerrar</button></div>`;
+  const stepper = `<div class="steps">${steps.map((s, i) => `<div class="step ${i + 1 < CK.step ? "done" : i + 1 === CK.step ? "cur" : ""}"><i></i>${s}</div>`).join("")}</div>`;
+  let body = "", foot = "";
+  if (CK.step === 1) {
+    const dniOk = /^[1-9]\d{6,7}$/.test(CK.dni.trim()), nomOk = CK.nombre.trim().length >= 3;
+    const idc = ckIdent();
+    body = `
+      <div class="fieldset">
+        <div class="field"><label for="ck_nombre">Nombre y apellido</label><input class="input ${CK.nombre && !nomOk ? "bad" : ""}" id="ck_nombre" value="${esc(CK.nombre)}" autocomplete="off"><span class="err">${CK.nombre && !nomOk ? "Mínimo 3 caracteres." : ""}</span></div>
+        <div class="field"><label for="ck_dni">DNI</label><input class="input ${CK.dni && !dniOk ? "bad" : ""}" id="ck_dni" value="${esc(CK.dni)}" inputmode="numeric" maxlength="8" autocomplete="off"><span class="err">${CK.dni && !dniOk ? "7 u 8 dígitos, sin puntos." : ""}</span></div>
+      </div>
+      <div class="box ${idc ? "chain" : ""}">
+        <div class="row between"><b>Compromiso de identidad</b><span class="chip">Ley 25.326</span></div>
+        <p class="muted" style="font-size:12.5px">Tu DNI no se publica. A la cadena solo llega este hash, calculado como <span class="mono">keccak256(abi.encode(DNI, salt))</span>.</p>
+        <div class="kvrows" style="font-size:12px">
+          <div><span>salt (Tribuna Segura)</span><b class="hashline">${idc ? idc.salt : "—"}</b></div>
+          <div><span>compromiso</span><b class="hashline">${idc ? idc.compromiso : "—"}</b></div>
+        </div>
+      </div>`;
+    foot = `<button class="btn" type="button" data-ck-close>Cancelar</button><button class="btn primary" type="button" id="ckNext1" ${idc ? "" : "disabled"}>Continuar</button>`;
+  } else if (CK.step === 2) {
+    const idc = ckIdent();
+    const k = e.idEvento + ":" + idc.compromiso, ya = S.porPersona[k] || 0;
+    body = `
+      <div class="kvrows" style="font-size:12.5px">
+        <div><span>Comprador</span><b>${esc(CK.nombre)} · <span class="mono">${short(buyerAddr)}</span></b></div>
+        <div><span>Entradas con este DNI en el evento</span><b>${ya} de ${e.limitePorPersona}</b></div>
+        ${e.requiereAdmision ? `<div><span>Derecho de admisión</span><b>Se consulta a Tribuna Segura</b></div>` : ""}
+      </div>
+      ${ya >= e.limitePorPersona ? `<div class="box bad" style="font-size:12.5px">Esta identidad ya tiene el máximo permitido. Si seguís, el contrato va a revertir con <span class="mono">LimitePorPersonaExcedido</span>.</div>` : ""}
+      ${CK.rechazo ? `<div class="box bad"><b>Tribuna Segura rechazó la verificación</b><span style="font-size:12.5px">${esc(CK.rechazo)}</span></div>` : ""}
+      ${CK.firma ? `<div class="box ok"><b>✓ Firma EIP-712 emitida</b>
+          <div class="kvrows" style="font-size:12px"><div><span>Tipo</span><b class="mono">VerificarIdentidad(bytes32 compromiso, address comprador, uint256 idEvento)</b></div>
+          <div><span>Firmante recuperado</span><b>${esc(nombreDe(CK.firmante))} · <span class="mono">${short(CK.firmante)}</span></b></div>
+          <div><span>¿Tiene VERIFICADOR_ROLE?</span><b>${hasRole(CK.firmante, "VERIFICADOR_ROLE") ? "Sí" : "No → FirmaInvalida"}</b></div></div>
+          <div class="hashline muted">${CK.firma}</div></div>` : `<div class="box"><p style="font-size:12.5px">Tribuna Segura firma que el compromiso pertenece a esta billetera y a este evento. El contrato solo acepta firmas de cuentas con <span class="mono">VERIFICADOR_ROLE</span>.</p></div>`}
+      <details class="attack" ${CK.ataque.firmaPropia ? "open" : ""}><summary>Pruebas de ataque</summary>
+        <label><input type="checkbox" id="ck_atk_firma" ${CK.ataque.firmaPropia ? "checked" : ""}> <span>Firmar la verificación con mi propia billetera (sin pasar por Tribuna Segura)</span></label>
+      </details>`;
+    foot = `<button class="btn" type="button" id="ckBack">Atrás</button>${CK.firma ? `<button class="btn primary" type="button" id="ckNext2">Continuar al pago</button>` : `<button class="btn primary" type="button" id="ckVerif" ${CK.busy ? "disabled" : ""}>${CK.busy ? "Verificando…" : "Verificar identidad"}</button>`}`;
+  } else if (CK.step === 3) {
+    const bal = S.bal[lc(buyerAddr)] || 0n;
+    const enviado = CK.ataque.monto ? (precio * 9n) / 10n : precio;
+    let split = "";
+    if (CK.mode === "reventa") {
+      const sp = Marketplace.split(S.pubs[CK.id]);
+      split = `<div class="box"><b>Cómo se reparte tu pago</b><div class="kvrows" style="font-size:12.5px">
+        <div><span>Regalía artista (${pct(S.entradas[S.pubs[CK.id].tokenId].royalty.bps)})</span><b>${POL(sp.regalia)}</b></div>
+        <div><span>Comisión plataforma (${pct(e.comisionBps)})</span><b>${POL(sp.comision)}</b></div>
+        <div><span>Neto para ${esc(nombreDe(S.pubs[CK.id].vendedor))}</span><b>${POL(sp.neto)}</b></div></div></div>`;
+    }
+    body = `
+      <div class="kvrows">
+        <div><span>${CK.mode === "primaria" ? "Entrada general" : `Entrada #${S.pubs[CK.id].tokenId} en reventa`}</span><b>${POL(precio)}</b></div>
+        <div><span>Gas estimado</span><b>~${((GAS[CK.mode === "primaria" ? "comprarEntrada" : "revenderEntrada"]) * 32e-9).toLocaleString("es-AR", { maximumFractionDigits: 5 })} POL</b></div>
+        <div class="total"><span>Monto a enviar (msg.value)</span><b>${POL(enviado)}</b></div>
+        <div><span>Saldo de tu billetera</span><b>${POL(bal)}</b></div>
+        <div><span>Saldo después del pago</span><b style="color:${bal < enviado ? "var(--bad)" : "inherit"}">${bal < enviado ? "Insuficiente" : POL(bal - enviado)}</b></div>
+      </div>
+      ${split}
+      <div class="box chain" style="font-size:12.5px">${CK.mode === "primaria" ? "El pago queda en custodia (escrow) del contrato hasta 24 h después del evento. Si se cancela, recuperás el 100 %." : "El pago se acredita al instante a artista, plataforma y vendedor; cada uno lo retira cuando quiere (patrón pull)."}</div>
+      <details class="attack" ${CK.ataque.monto ? "open" : ""}><summary>Pruebas de ataque</summary>
+        <label><input type="checkbox" id="ck_atk_monto" ${CK.ataque.monto ? "checked" : ""}> <span>Enviar un 10 % menos del precio</span></label>
+      </details>`;
+    foot = `<button class="btn" type="button" id="ckBack">Atrás</button><button class="btn primary" type="button" id="ckPay" ${bal < enviado ? "disabled" : ""}>Pagar ${POL(enviado, 3)}</button>`;
+  } else {
+    const r = CK.resultado;
+    if (r.ok) {
+      const t = S.entradas[CK.mode === "primaria" ? r.tx.result : S.pubs[CK.id].tokenId];
+      body = `<div class="mint-anim">${ticketHTML(t, { compact: true })}</div>
+        <div class="box ok"><b>✓ ${CK.mode === "primaria" ? "Entrada acuñada" : "Entrada transferida"} en el bloque ${r.tx.block.toLocaleString("es-AR")}</b><div class="hashline">${r.tx.hash}</div><div class="evs row" style="gap:4px">${r.tx.events.map((x) => `<span class="chip">${x.name}</span>`).join("")}</div></div>`;
+      foot = `<button class="btn" type="button" data-ck-close>Seguir en la cartelera</button><button class="btn primary" type="button" data-ck-mis>Ver mis entradas</button>`;
+    } else {
+      const er = r.tx.error;
+      body = `<div class="box bad"><b>La transacción revirtió</b><span class="mono" style="font-size:13px">${esc(er.contrato)} → ${esc(er.errName)}() · ${er.selector}</span><span style="font-size:13px">${esc(ERR_MSG[er.errName] || "")}</span><span class="muted" style="font-size:12px">No se movió dinero ni se acuñó ninguna entrada. Solo se consumió gas.</span></div>`;
+      foot = `<button class="btn" type="button" data-ck-close>Cerrar</button><button class="btn primary" type="button" id="ckRetry">Volver a intentar</button>`;
+    }
+  }
+  $("#modalRoot").innerHTML = `<div class="overlay" role="dialog" aria-modal="true" aria-label="Comprar entrada"><div class="modal wide">${head}<div class="modal-body">${stepper}${body}</div><div class="modal-foot">${foot}</div></div></div>`;
+}
+async function ckVerificar() {
+  const e = ckEvento(), idc = ckIdent();
+  CK.busy = true; CK.rechazo = null; renderCheckout();
+  await wait(500);
+  if (!CK.ataque.firmaPropia && e.requiereAdmision && RESTRINGIDOS.has(CK.dni.trim())) {
+    CK.busy = false; CK.rechazo = "El DNI tiene una restricción de concurrencia vigente en el registro de derecho de admisión (Ley 23.184). No se emite la firma, así que la compra no puede seguir.";
+    toast("Tribuna Segura rechazó la verificación", "bad"); renderCheckout(); return;
+  }
+  const signerKey = CK.ataque.firmaPropia ? CK.buyer : "verif";
+  const firma = await firmarVerificacion(W[signerKey].wallet, idc.compromiso, addrOf(CK.buyer), e.idEvento);
+  CK.firma = firma; CK.firmante = U.verifyTypedData(DOM_EM(), T_VERIF, { compromiso: idc.compromiso, comprador: addrOf(CK.buyer), idEvento: e.idEvento }, firma);
+  CK.busy = false;
+  logFirma(signerKey, "VerificarIdentidad", `comprador ${short(addrOf(CK.buyer))} · evento #${e.idEvento}`, firma);
+  renderCheckout(); render();
+}
+async function ckPagar() {
+  const e = ckEvento(), idc = ckIdent(), precio = ckPrecio();
+  const value = CK.ataque.monto ? (precio * 9n) / 10n : precio;
+  let r;
+  if (CK.mode === "primaria") {
+    r = await enviarTx({ fromKey: CK.buyer, contrato: "EventManager", fn: "comprarEntrada", value,
+      args: [["idEvento", e.idEvento], ["compromiso", shortH(idc.compromiso)], ["firmaVerificador", shortH(CK.firma)]],
+      run: (m) => EventManager.comprarEntrada(m, e.idEvento, idc.compromiso, CK.firma) });
+  } else {
+    r = await enviarTx({ fromKey: CK.buyer, contrato: "ReventaMarketplace", fn: "revenderEntrada", value,
+      args: [["idPublicacion", CK.id], ["nuevoCompromiso", shortH(idc.compromiso)], ["firmaVerificador", shortH(CK.firma)]],
+      run: (m) => Marketplace.revenderEntrada(m, CK.id, idc.compromiso, CK.firma) });
+  }
+  if (!r || r.rejected || r.wallet || !CK) return;
+  if (r.ok) S.ident[CK.buyer] = { nombre: CK.nombre.trim(), dni: CK.dni.trim(), salt: idc.salt, compromiso: idc.compromiso };
+  CK.resultado = r; CK.step = 4; renderCheckout();
+}
+
+/* ---- Mis entradas ---- */
+function ticketHTML(t, o = {}) {
+  const e = S.eventos[t.idEvento], est = estadoEfectivo(t);
+  const vendedor = Marketplace.obtenerVendedorDeToken(t.tokenId);
+  const stampCol = { Utilizada: "var(--chain)", Reembolsada: "var(--bad)", Vencida: "var(--muted)", "En reventa": "var(--warn)" }[est];
+  let actions = "";
+  if (!o.compact) {
+    const a = [];
+    if (est === "Asignada" && e.estado === "Programado") {
+      a.push(`<button class="btn small primary" type="button" data-qr="${t.tokenId}">Mostrar QR de ingreso</button>`);
+      a.push(`<button class="btn small" type="button" data-sell="${t.tokenId}">Revender</button>`);
+      a.push(`<button class="btn small ghost" type="button" data-p2p="${t.tokenId}">Transferir a otra billetera</button>`);
+    }
+    if (est === "En reventa" && e.estado === "Programado") a.push(`<button class="btn small" type="button" data-unlist="${S.tokenAPub[t.tokenId]}">Retirar publicación</button>`);
+    if (e.estado === "Cancelado" && (t.estado === "Asignada" || t.estado === "EnReventa")) a.push(`<button class="btn small primary" type="button" data-refund="${t.tokenId}">Reclamar reembolso · ${POL(t.precioOriginal, 2)}</button>`);
+    if (e.estado === "Cancelado" && t.estado === "Reembolsada") a.push(`<button class="btn small" type="button" data-refund="${t.tokenId}">Reclamar de nuevo</button>`);
+    if (a.length) actions = `<div class="actions">${a.join("")}</div>`;
+  }
+  return `<article class="ticket ${S.selToken === t.tokenId && !o.compact ? "sel" : ""} ${["Utilizada", "Reembolsada", "Vencida"].includes(est) ? "dim" : ""}" data-selt="${t.tokenId}">
+    ${stampCol ? `<span class="stamp" style="color:${stampCol}">${est}</span>` : ""}
+    <div class="main">
+      <div class="row" style="gap:8px">${estadoPill(est)}<span class="chip">${TIPO_LABEL[e.tipo]}</span>${vendedor ? `<span class="chip">Publicada a ${POL(S.pubs[S.tokenAPub[t.tokenId]].precio, 2)}</span>` : ""}</div>
+      <div class="ev-name">${esc(e.nombre)}</div>
+      <div class="meta"><span>${fmtFecha(e.fechaHora)}</span><span>${esc(e.lugar)}</span></div>
+      <div class="kv">
+        <div><small>Precio original</small><b>${POL(t.precioOriginal, 3)}</b></div>
+        <div><small>Reventas</small><b>${t.cantTransferencias} / ${e.maxTransferencias}</b></div>
+        <div><small>Titular</small><b class="mono">${short(t.owner)}</b></div>
+      </div>
+      <div class="muted" style="font-size:11.5px">Compromiso <span class="mono">${shortH(t.compromiso)}</span></div>
+      ${actions}
+    </div>
+    <div class="stub"><small>Entrada</small><span class="tid">#${t.tokenId}</span><small>ERC-721<br>TICKET</small></div>
+  </article>`;
+}
+function viewMisEntradas() {
+  const ts = misEntradas(cur().address).sort((a, b) => b.tokenId - a.tokenId);
+  const head = `<div class="view-head"><h1>Mis entradas</h1><p>Entradas NFT de <b>${esc(cur().perfil.nombre)}</b>. El QR de ingreso se firma con tu billetera y vence a los 60 segundos, así que una captura de pantalla no sirve.</p></div>`;
+  if (!ts.length) return head + `<div class="empty">Esta billetera no tiene entradas.<button class="btn primary" type="button" data-go="cartelera">Ir a la cartelera</button></div>`;
+  return head + `<div class="list">${ts.map((t) => ticketHTML(t)).join("")}</div>`;
+}
+
+function abrirReventa(tokenId) {
+  const t = S.entradas[tokenId], e = S.eventos[t.idEvento], max = Marketplace.precioMax(t);
+  const sug = (t.precioOriginal * 110n) / 100n;
+  $("#modalRoot").innerHTML = `<div class="overlay" role="dialog" aria-modal="true" aria-label="Revender entrada"><div class="modal">
+    <div class="modal-head"><div><span class="chip">Reventa oficial</span><h2 style="margin-top:4px">Revender entrada #${tokenId}</h2><p class="muted" style="font-size:12.5px">${esc(e.nombre)}</p></div><button class="btn ghost small x" type="button" data-close>Cerrar</button></div>
+    <div class="modal-body">
+      <div class="field"><label for="rv_precio">Precio de reventa</label><div class="suffix"><input class="input" id="rv_precio" inputmode="decimal" value="${U.formatEther(sug.toString())}"><span>POL</span></div><span class="err" id="rv_err"></span><span class="hint">Tope legal: <b>${POL(max)}</b> (precio original ${POL(t.precioOriginal)} + ${pct(e.topeBps)})</span></div>
+      <div class="box" id="rv_split"></div>
+      <div class="box chain" style="font-size:12.5px">Al publicar, la entrada pasa a custodia del marketplace y su estado cambia a <b>En reventa</b>. Podés retirarla mientras nadie la compre.</div>
+    </div>
+    <div class="modal-foot"><button class="btn" type="button" data-close>Cancelar</button><button class="btn primary" type="button" id="rv_ok" data-token="${tokenId}">Publicar</button></div>
+  </div></div>`;
+  actualizarReventa(tokenId);
+}
+function actualizarReventa(tokenId) {
+  const t = S.entradas[tokenId], e = S.eventos[t.idEvento], max = Marketplace.precioMax(t);
+  const v = $("#rv_precio").value.trim();
+  const btn = $("#rv_ok");
+  if (!/^\d+(\.\d{1,18})?$/.test(v) || Number(v) <= 0) { $("#rv_err").textContent = "Ingresá un precio mayor a 0."; btn.disabled = true; $("#rv_split").innerHTML = ""; return; }
+  btn.disabled = false;
+  const p = toWei(v);
+  const over = p > max;
+  $("#rv_err").innerHTML = over ? `Supera el tope por ${POL(p - max)}. El contrato va a revertir con <span class="mono">PrecioSuperaTope()</span>.` : "";
+  btn.className = "btn " + (over ? "warn-send" : "primary");
+  btn.textContent = over ? "Publicar igual (va a revertir)" : "Publicar";
+  const sp = Marketplace.split({ tokenId, precio: p });
+  $("#rv_split").innerHTML = `<b>Si se vende a ${POL(p)}</b><div class="kvrows" style="font-size:12.5px"><div><span>Regalía artista (${pct(t.royalty.bps)})</span><b>${POL(sp.regalia)}</b></div><div><span>Comisión plataforma (${pct(e.comisionBps)})</span><b>${POL(sp.comision)}</b></div><div class="total"><span>Recibís</span><b>${POL(sp.neto)}</b></div></div>`;
+}
+async function publicar(tokenId) {
+  const p = toWei($("#rv_precio").value.trim());
+  $("#modalRoot").innerHTML = "";
+  await enviarTx({ fromKey: S.cur, contrato: "ReventaMarketplace", fn: "publicarReventa", args: [["idToken", tokenId], ["precio", POL(p)]], run: (m) => Marketplace.publicarReventa(m, tokenId, p) });
+}
+function abrirP2P(tokenId) {
+  const otros = PERFILES.filter((p) => p.rol === "Fan" && p.key !== S.cur);
+  $("#modalRoot").innerHTML = `<div class="overlay" role="dialog" aria-modal="true" aria-label="Transferir entrada"><div class="modal">
+    <div class="modal-head"><div><span class="chip" style="color:var(--bad)">Prueba de ataque</span><h2 style="margin-top:4px">Vender por fuera de la plataforma</h2><p class="muted" style="font-size:12.5px">Así se revende hoy en el mercado negro: se pasa la entrada directo a otra persona.</p></div><button class="btn ghost small x" type="button" data-close>Cerrar</button></div>
+    <div class="modal-body">
+      <div class="field"><label for="p2p_to">Destinatario</label><select class="input" id="p2p_to">${otros.map((p) => `<option value="${p.key}">${esc(p.nombre)} · ${short(W[p.key].address)}</option>`).join("")}</select></div>
+      <div class="field"><label for="p2p_fn">Método</label><select class="input" id="p2p_fn"><option value="transferFrom">transferFrom · pasar el NFT directo</option><option value="approve">approve · autorizar a un mercado externo</option></select></div>
+    </div>
+    <div class="modal-foot"><button class="btn" type="button" data-close>Cancelar</button><button class="btn warn-send" type="button" id="p2p_ok" data-token="${tokenId}">Intentar transferir</button></div>
+  </div></div>`;
+}
+async function p2p(tokenId) {
+  const to = $("#p2p_to").value, fn = $("#p2p_fn").value;
+  $("#modalRoot").innerHTML = "";
+  const args = fn === "transferFrom" ? [["from", short(cur().address)], ["to", short(addrOf(to))], ["tokenId", tokenId]] : [["to", short(addrOf(to))], ["tokenId", tokenId]];
+  await enviarTx({ fromKey: S.cur, contrato: "EntradaNFT", fn, args, run: (m) => EntradaNFT[fn](m, cur().address, addrOf(to), tokenId) });
+}
+
+/* ---- QR dinámico ---- */
+let QRS = null, qrTimer = null;
+async function abrirQR(tokenId) {
+  QRS = { tokenId, owner: S.cur };
+  await renovarQR();
+  if (qrTimer) clearInterval(qrTimer);
+  qrTimer = setInterval(tickQR, 1000);
+}
+async function renovarQR() {
+  const t = S.entradas[QRS.tokenId];
+  const ts = now();
+  const firma = await firmarAcceso(W[QRS.owner].wallet, t.tokenId, ts);
+  QRS.payload = { tokenId: t.tokenId, timestamp: ts, compromiso: t.compromiso, firma };
+  S.qrs.unshift({ ...QRS.payload, de: QRS.owner, generado: ts });
+  S.qrs = S.qrs.slice(0, 12);
+  logFirma(QRS.owner, "ValidarAcceso", `QR entrada #${t.tokenId} · ts ${ts}`, firma);
+  pintarQR(); renderSide();
+}
+function pintarQR() {
+  const t = S.entradas[QRS.tokenId], e = S.eventos[t.idEvento];
+  const str = JSON.stringify(QRS.payload);
+  const q = qrcode(0, "M"); q.addData(str); q.make();
+  const restante = QRS.payload.timestamp + VENTANA_QR - now();
+  $("#modalRoot").innerHTML = `<div class="overlay" role="dialog" aria-modal="true" aria-label="QR de ingreso"><div class="modal wide">
+    <div class="modal-head"><div><span class="chip">QR dinámico · EIP-712</span><h2 style="margin-top:4px">Entrada #${t.tokenId} · ${esc(e.nombre)}</h2></div><button class="btn ghost small x" type="button" data-qr-close>Cerrar</button></div>
+    <div class="modal-body"><div class="qr-wrap">
+      <div class="qr ${restante <= 0 ? "expired" : ""}" id="qrBox">${q.createSvgTag({ cellSize: 4, margin: 2, scalable: true })}</div>
+      <div class="list" style="gap:10px;min-width:0">
+        <div><span class="muted" style="font-size:12px">Válido por</span><div class="ring" id="qrCount">${Math.max(0, restante)} s</div><div class="bar" style="margin-top:6px"><i id="qrBar" style="width:${Math.max(0, restante) / VENTANA_QR * 100}%"></i></div></div>
+        <p class="muted" style="font-size:12.5px">Se renueva solo cada 30 s. Cada versión está firmada por tu billetera con la hora del bloque; el molinete rechaza cualquier QR de más de 60 s.</p>
+        <div class="kvrows" style="font-size:11.5px"><div><span>timestamp</span><b class="mono">${QRS.payload.timestamp}</b></div><div><span>firma</span><b class="mono">${shortH(QRS.payload.firma)}</b></div></div>
+        <div class="row"><button class="btn small" type="button" id="qrRenew">Renovar ahora</button><button class="btn small dark" type="button" data-go-door>Ir a la puerta</button></div>
+      </div>
+    </div></div>
+  </div></div>`;
+}
+function tickQR() {
+  if (!QRS || !$("#qrCount")) { clearInterval(qrTimer); qrTimer = null; return; }
+  const edad = now() - QRS.payload.timestamp;
+  if (edad >= 30 && edad < VENTANA_QR + 600 && S.entradas[QRS.tokenId].estado === "Asignada" && !QRS.renovando) {
+    QRS.renovando = true; renovarQR().finally(() => { if (QRS) QRS.renovando = false; }); return;
+  }
+  const restante = Math.max(0, QRS.payload.timestamp + VENTANA_QR - now());
+  $("#qrCount").textContent = restante + " s";
+  $("#qrBar").style.width = (restante / VENTANA_QR) * 100 + "%";
+  $("#qrBox").classList.toggle("expired", restante <= 0);
+}
+function cerrarQR() { QRS = null; if (qrTimer) clearInterval(qrTimer); qrTimer = null; $("#modalRoot").innerHTML = ""; }
+
+/* ---- Reventa ---- */
+function viewReventa() {
+  const pubs = Object.values(S.pubs).sort((a, b) => b.id - a.id);
+  const activas = pubs.filter((p) => p.estado === "Activa");
+  const head = `<div class="view-head"><h1>Reventa oficial</h1><p>El único canal donde una entrada puede cambiar de dueño. El precio nunca supera el tope del evento y cada venta paga regalía al artista automáticamente.</p></div>`;
+  const cards = activas.length ? `<div class="grid-cards">${activas.map((p) => {
+    const t = S.entradas[p.tokenId], e = S.eventos[t.idEvento], max = Marketplace.precioMax(t);
+    const sobre = Number(((p.precio - t.precioOriginal) * 10000n) / t.precioOriginal) / 100;
+    const propia = lc(p.vendedor) === lc(cur().address);
+    return `<article class="poster">${posterArt(e)}<div class="body">
+      <div><h3>${esc(e.nombre)}</h3><p class="muted" style="font-size:12.5px">Entrada #${t.tokenId} · vende ${esc(nombreDe(p.vendedor))}</p></div>
+      <div class="row between"><span class="price">${POL(p.precio, 3)}</span><span class="pill ${sobre > 0 ? "p-warn" : "p-ok"}">${sobre >= 0 ? "+" : ""}${sobre.toLocaleString("es-AR")} % vs. original</span></div>
+      <div class="kvrows" style="font-size:12px"><div><span>Precio original</span><b>${POL(t.precioOriginal, 3)}</b></div><div><span>Tope permitido</span><b>${POL(max, 3)}</b></div><div><span>Reventas previas</span><b>${t.cantTransferencias} / ${e.maxTransferencias}</b></div></div>
+      <div class="spacer"></div>
+      ${propia ? `<button class="btn" type="button" data-unlist="${p.id}">Es tuya · retirar publicación</button>` : `<button class="btn primary" type="button" data-buyres="${p.id}">Comprar en reventa</button>`}
+    </div></article>`;
+  }).join("")}</div>` : `<div class="empty">No hay entradas publicadas en reventa.<span style="font-size:12.5px">Desde “Mis entradas” cualquier titular puede publicar la suya.</span></div>`;
+  const hist = pubs.filter((p) => p.estado !== "Activa");
+  const tabla = hist.length ? `<h2>Historial</h2><div class="tbl-wrap"><table><thead><tr><th>Pub.</th><th>Entrada</th><th>Vendedor</th><th>Comprador</th><th>Precio</th><th>Estado</th></tr></thead><tbody>${hist.map((p) => `<tr><td class="mono">#${p.id}</td><td class="mono">#${p.tokenId}</td><td>${esc(nombreDe(p.vendedor))}</td><td>${p.comprador ? esc(nombreDe(p.comprador)) : "—"}</td><td class="num">${POL(p.precio, 3)}</td><td>${estadoPill(p.estado)}</td></tr>`).join("")}</tbody></table></div>` : "";
+  return head + cards + tabla;
+}
+async function retirarPub(id) {
+  await enviarTx({ fromKey: S.cur, contrato: "ReventaMarketplace", fn: "retirarPublicacion", args: [["idPublicacion", id]], run: (m) => Marketplace.retirarPublicacion(m, id) });
+}
+async function reembolso(tokenId) {
+  await enviarTx({ fromKey: S.cur, contrato: "EventManager", fn: "reclamarReembolso", args: [["tokenId", tokenId]], run: (m) => EventManager.reclamarReembolso(m, tokenId) });
+}
+
+/* ---- Puerta ---- */
+let DOOR = { payloadText: "", resultado: null };
+function viewPuerta() {
+  const r = DOOR.resultado;
+  let turn = `<div class="turnstile"><div class="big muted">Esperando QR</div><p class="muted">Elegí un QR de la fila o pegá su contenido.</p></div>`;
+  if (r) {
+    turn = `<div class="turnstile ${r.ok ? "ok" : "bad"}"><div class="big">${r.ok ? "Adelante" : "No pasa"}</div><p>${r.ok ? `Entrada #${r.tokenId} validada. Estado → Utilizada.` : `${esc(r.err)}() · ${esc(ERR_MSG[r.err] || "")}`}</p>
+      <div class="checks">${r.checks.map((c) => `<div><span class="${c[1] === true ? "y" : c[1] === false ? "n" : "s"}">${c[1] === true ? "✓" : c[1] === false ? "✗" : "·"}</span><span>${esc(c[0])}</span></div>`).join("")}</div></div>`;
+  }
+  return `
+  <div class="view-head"><h1>Control de acceso</h1><p>El molinete llama a <span class="mono">EntradaNFT.validarIngreso</span> con la billetera del validador. El contrato comprueba identidad, vigencia del QR y firma del titular, y marca la entrada como utilizada.</p></div>
+  <div class="door-grid">
+    <div class="list">
+      <div class="card list" style="gap:10px">
+        <div class="section-title"><h3>Fila de ingreso</h3><span class="muted" style="font-size:12px">QRs mostrados por los titulares</span></div>
+        <div class="list" style="gap:8px" id="doorQueue">${filaHTML()}</div>
+      </div>
+      <div class="card list" style="gap:10px">
+        <h3>Contenido del QR</h3>
+        <textarea class="input mono" id="door_payload" rows="5" spellcheck="false" placeholder='{"tokenId":1,"timestamp":…,"compromiso":"0x…","firma":"0x…"}'>${esc(DOOR.payloadText)}</textarea>
+        <div class="row"><button class="btn primary" type="button" id="doorGo">Validar ingreso</button><span class="spacer"></span></div>
+        <details class="attack"><summary>Pruebas de ataque</summary>
+          <div class="row"><button class="btn small danger" type="button" data-door-atk="captura">Captura de pantalla de hace 2 min</button><button class="btn small danger" type="button" data-door-atk="ajena">QR firmado por otra billetera</button><button class="btn small danger" type="button" data-door-atk="identidad">Otro DNI con el QR</button></div>
+        </details>
+      </div>
+    </div>
+    ${turn}
+  </div>`;
+}
+function filaHTML() {
+  const fila = S.qrs.slice(0, 8);
+  return fila.length ? fila.map((q, i) => {
+          const edad = now() - q.timestamp, vig = edad <= VENTANA_QR && q.timestamp <= now() + 5;
+          return `<div class="queue-item"><div style="min-width:0"><b>Entrada #${q.tokenId}</b> · ${esc(W[q.de]?.perfil.nombre || "—")}<br><span class="muted" style="font-size:12px">generado ${fmtHora(q.timestamp)} · hace ${edad} s</span> ${vig ? `<span class="pill p-ok">vigente</span>` : `<span class="pill p-bad">vencido</span>`}</div><button class="btn small dark" type="button" data-scan="${i}">Escanear</button></div>`;
+        }).join("") : `<div class="empty" style="padding:18px">Nadie mostró un QR todavía. Desde “Mis entradas”, tocá “Mostrar QR de ingreso”.</div>`;
+}
+function checksIngreso(p) {
+  const t = S.entradas[p.tokenId];
+  const out = [];
+  const add = (txt, ok) => { out.push([txt, ok]); return ok; };
+  if (!add("Billetera con VALIDADOR_ROLE", hasRole(cur().address, "VALIDADOR_ROLE"))) return out;
+  if (!add("La entrada existe", !!t)) return out;
+  if (!add("Estado de la entrada: Asignada", t.estado === "Asignada")) return out;
+  if (!add("Evento en estado Programado", S.eventos[t.idEvento].estado === "Programado")) return out;
+  if (!add("Compromiso de identidad coincide", t.compromiso === p.compromiso)) return out;
+  if (!add("QR dentro de la ventana de 60 s", !(now() > p.timestamp + VENTANA_QR || p.timestamp > now() + 5))) return out;
+  let firmante = null; try { firmante = U.verifyTypedData(DOM_NFT(), T_ACCESO, { tokenId: p.tokenId, timestamp: p.timestamp }, p.firma); } catch {}
+  add("Firma EIP-712 del titular actual", !!firmante && lc(firmante) === lc(t.owner));
+  return out;
+}
+async function validarPuerta(payload) {
+  let p;
+  try { p = typeof payload === "string" ? JSON.parse(payload) : payload; } catch { toast("El contenido del QR no es JSON válido.", "bad"); return; }
+  if (!p || !Number.isInteger(p.tokenId) || !Number.isInteger(p.timestamp) || !/^0x[0-9a-fA-F]{64}$/.test(p.compromiso || "") || !/^0x[0-9a-fA-F]+$/.test(p.firma || "")) { toast("Al QR le faltan campos: tokenId, timestamp, compromiso o firma.", "bad"); return; }
+  DOOR.payloadText = JSON.stringify(p, null, 1);
+  const checks = checksIngreso(p);
+  const r = await enviarTx({ fromKey: S.cur, contrato: "EntradaNFT", fn: "validarIngreso",
+    args: [["tokenId", p.tokenId], ["compromisoPresentado", shortH(p.compromiso)], ["timestamp", p.timestamp], ["firmaTitular", shortH(p.firma)]],
+    run: (m) => EntradaNFT.validarIngreso(m, p.tokenId, p.compromiso, p.timestamp, p.firma) });
+  if (r.rejected || r.wallet) return;
+  DOOR.resultado = { ok: r.ok, tokenId: p.tokenId, err: r.ok ? null : r.tx.error.errName, checks };
+  render(true);
+}
+async function ataquePuerta(tipo) {
+  const libre = (x) => x && x.estado === "Asignada" && S.eventos[x.idEvento].estado === "Programado";
+  const base = S.qrs.find((q) => libre(S.entradas[q.tokenId]));
+  const t = base ? S.entradas[base.tokenId] : Object.values(S.entradas).find(libre);
+  if (!t) { toast("Primero tiene que existir una entrada asignada.", "bad"); return; }
+  const ownerKey = BY_ADDR[lc(t.owner)]?.perfil.key;
+  if (!ownerKey) { toast("La entrada está en custodia del marketplace; elegí otra.", "bad"); return; }
+  let p;
+  if (tipo === "captura") { const ts = now() - 120; p = { tokenId: t.tokenId, timestamp: ts, compromiso: t.compromiso, firma: await firmarAcceso(W[ownerKey].wallet, t.tokenId, ts) }; }
+  if (tipo === "ajena") { const ts = now(); const otro = ownerKey === "carla" ? "bruno" : "carla"; p = { tokenId: t.tokenId, timestamp: ts, compromiso: t.compromiso, firma: await firmarAcceso(W[otro].wallet, t.tokenId, ts) }; }
+  if (tipo === "identidad") { const ts = now(); const sal = saltPara("27999888"); p = { tokenId: t.tokenId, timestamp: ts, compromiso: compromisoDe("27999888", sal), firma: await firmarAcceso(W[ownerKey].wallet, t.tokenId, ts) }; }
+  await validarPuerta(p);
+}
+
+/* ---- Fondos ---- */
+function viewFondos() {
+  const me = lc(cur().address), mio = S.saldos[me] || 0n;
+  const filas = PERFILES.map((p) => ({ p, s: S.saldos[lc(W[p.key].address)] || 0n, b: S.bal[lc(W[p.key].address)] || 0n }));
+  const evs = Object.values(S.eventos);
+  const totalCust = evs.reduce((a, e) => a + e.custodia, 0n);
+  return `
+  <div class="view-head"><h1>Fondos</h1><p>El contrato no empuja pagos a nadie: acredita saldos y cada beneficiario los retira cuando quiere (patrón pull + checks-effects-interactions). Así un receptor malicioso no puede bloquear a los demás.</p></div>
+  <div class="grid-cards">
+    <div class="card list" style="gap:10px"><span class="muted" style="font-size:12px">Saldo a retirar · ${esc(cur().perfil.nombre)}</span><span class="price" style="font-size:1.8rem">${POL(mio)}</span>
+      <button class="btn primary" type="button" id="btnRetirar">Retirar fondos</button>
+      <span class="muted" style="font-size:12px">${mio === 0n ? "Sin saldo: si retirás, el contrato revierte con SinSaldo()." : "Pasan a tu billetera en una sola transacción."}</span></div>
+    <div class="card list" style="gap:10px"><span class="muted" style="font-size:12px">En custodia (escrow) en EventManager</span><span class="price" style="font-size:1.8rem">${POL(totalCust)}</span>
+      <div class="kvrows" style="font-size:12.5px">${evs.map((e) => `<div><span>#${e.idEvento} ${esc(e.nombre)}</span><b>${POL(e.custodia, 3)}</b></div>`).join("") || "<div><span>Sin eventos</span><b>—</b></div>"}</div></div>
+  </div>
+  <div class="tbl-wrap"><table><thead><tr><th>Cuenta</th><th>Rol</th><th>Saldo pendiente (contrato)</th><th>Saldo en billetera</th></tr></thead><tbody>
+    ${filas.map(({ p, s, b }) => `<tr class="${p.key === S.cur ? "sel" : ""}"><td><div class="row" style="gap:8px;flex-wrap:nowrap">${avatar(p)}<span><b>${esc(p.nombre)}</b><br><span class="mono muted">${short(W[p.key].address)}</span></span></div></td><td>${esc(p.rol)}</td><td class="num">${POL(s)}</td><td class="num">${POL(b, 3)}</td></tr>`).join("")}
+  </tbody></table></div>`;
+}
+
+/* ------------------------------ panel lateral ------------------------------ */
+function renderClock() {
+  const off = S.offset, d = Math.floor(off / 86400), h = Math.floor((off % 86400) / 3600), mi = Math.floor((off % 3600) / 60);
+  const ev = S.eventos[S.selEvento];
+  $("#clockPanel").innerHTML = `<h3>Reloj de la cadena <button class="btn ghost small" type="button" id="btnReset">Reiniciar demo</button></h3>
+    <div class="clock" id="clockNow">${fmtFecha(now())}</div>
+    <div class="clock-sub"><span>bloque <b class="num">${S.block.toLocaleString("es-AR")}</b></span><span>${off ? `adelantado ${d ? d + " d " : ""}${h} h ${mi} min` : "hora real"}</span></div>
+    <div class="clock-btns">
+      <button class="btn small" type="button" data-adv="120">+2 min</button>
+      <button class="btn small" type="button" data-adv="3600">+1 h</button>
+      <button class="btn small" type="button" data-adv="86400">+1 día</button>
+      ${ev ? `<button class="btn small" type="button" data-jump="fecha">Ir al evento #${ev.idEvento}</button><button class="btn small" type="button" data-jump="cierre">Evento + 24 h</button>` : ""}
+    </div>`;
+}
+function smEvento(e) {
+  const seen = new Set(e ? e.historial.map((h) => h.estado) : []);
+  const cls = (n) => "node " + (e && e.estado === n ? "cur" : seen.has(n) ? "seen" : "");
+  return `<svg class="sm" viewBox="0 0 320 84" role="img" aria-label="Máquina de estados del evento">
+    <defs><marker id="ah1" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path class="arrowhead" d="M0,0 L8,4 L0,8 z"/></marker></defs>
+    <path class="edge" d="M112,42 C150,42 160,20 196,20" marker-end="url(#ah1)"/><path class="edge" d="M112,42 C150,42 160,64 196,64" marker-end="url(#ah1)"/>
+    <text class="elbl" x="118" y="14">cerrarEvento</text><text class="elbl" x="124" y="78">cancelarEvento</text>
+    <g class="${cls("Programado")}"><rect x="4" y="26" width="108" height="32" rx="8"/><text x="58" y="46" text-anchor="middle">Programado</text></g>
+    <g class="${cls("Finalizado")}"><rect x="198" y="4" width="116" height="32" rx="8"/><text x="256" y="24" text-anchor="middle">Finalizado</text></g>
+    <g class="${cls("Cancelado")}"><rect x="198" y="48" width="116" height="32" rx="8"/><text x="256" y="68" text-anchor="middle">Cancelado</text></g>
+  </svg>`;
+}
+function smEntrada(t) {
+  const est = t ? estadoEfectivo(t) : null;
+  const seen = new Set(t ? t.historial.map((h) => (h.estado === "EnReventa" ? "En reventa" : h.estado)) : []);
+  const cls = (n) => "node " + (est === n ? "cur" : seen.has(n) ? "seen" : "");
+  return `<svg class="sm" viewBox="0 0 320 150" role="img" aria-label="Máquina de estados de la entrada">
+    <defs><marker id="ah2" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="7" markerHeight="7" orient="auto"><path class="arrowhead" d="M0,0 L8,4 L0,8 z"/></marker></defs>
+    <path class="edge" d="M142,20 L178,20" marker-end="url(#ah2)"/><path class="edge" d="M178,34 L142,34" marker-end="url(#ah2)"/>
+    <path class="edge dash" d="M58,44 L54,102" marker-end="url(#ah2)"/>
+    <path class="edge" d="M104,44 L152,102" marker-end="url(#ah2)"/>
+    <path class="edge" d="M128,44 L238,102" marker-end="url(#ah2)"/>
+    <path class="edge" d="M252,44 L264,102" marker-end="url(#ah2)"/>
+    <text class="elbl" x="6" y="74">evento</text><text class="elbl" x="6" y="84">finalizado</text>
+    <text class="elbl" x="94" y="80">validarIngreso</text><text class="elbl" x="196" y="72">reembolso</text>
+    <g class="${cls("Asignada")}"><rect x="30" y="10" width="112" height="34" rx="8"/><text x="86" y="31" text-anchor="middle">Asignada</text></g>
+    <g class="${cls("En reventa")}"><rect x="178" y="10" width="112" height="34" rx="8"/><text x="234" y="31" text-anchor="middle">En reventa</text></g>
+    <g class="${cls("Vencida")}"><rect x="4" y="104" width="98" height="34" rx="8"/><text x="53" y="125" text-anchor="middle">Vencida</text></g>
+    <g class="${cls("Utilizada")}"><rect x="111" y="104" width="98" height="34" rx="8"/><text x="160" y="125" text-anchor="middle">Utilizada</text></g>
+    <g class="${cls("Reembolsada")}"><rect x="218" y="104" width="98" height="34" rx="8"/><text x="267" y="125" text-anchor="middle">Reembolsada</text></g>
+  </svg>`;
+}
+function renderMachines() {
+  const e = S.eventos[S.selEvento], t = S.entradas[S.selToken];
+  const histE = e ? e.historial.map((h) => `<div><span class="t">${fmtDia(h.ts)} ${fmtHora(h.ts).slice(0, 5)}</span><span>${h.estado} <span class="mono muted">${shortH(h.tx)}</span></span></div>`).join("") : "";
+  const histT = t ? t.historial.map((h) => `<div><span class="t">${fmtDia(h.ts)} ${fmtHora(h.ts).slice(0, 5)}</span><span>${h.estado === "EnReventa" ? "En reventa" : h.estado} <span class="mono muted">${shortH(h.tx)}</span></span></div>`).join("") : "";
+  $("#machines").innerHTML = `
+    <h3>Estado del evento ${e ? `<span class="chip">#${e.idEvento}</span>` : ""}</h3>
+    ${smEvento(e)}
+    <p class="sm-caption">${e ? esc(e.nombre) : "Seleccioná un evento en el panel del organizador."}</p>
+    ${histE ? `<div class="hist">${histE}</div>` : ""}
+    <h3 style="margin-top:14px">Estado de la entrada ${t ? `<span class="chip">#${t.tokenId}</span>` : ""}</h3>
+    ${smEntrada(t)}
+    <p class="sm-caption">${t ? `Titular: ${esc(nombreDe(t.owner))} · estado efectivo <b>${estadoEfectivo(t)}</b>` : "Tocá una entrada para seguir sus estados."}</p>
+    ${histT ? `<div class="hist">${histT}</div>` : ""}`;
+}
+function fmtArg(v) { if (typeof v === "bigint") return POL(v); if (typeof v === "string" && /^0x[0-9a-fA-F]{40}$/.test(v)) return nombreDe(v) + " (" + short(v) + ")"; if (typeof v === "string" && /^0x[0-9a-fA-F]{64}$/.test(v)) return shortH(v); return String(v); }
+function renderLog() {
+  $("#txlog").innerHTML = S.txs.slice(0, 60).map((tx) => {
+    const p = W[tx.fromKey]?.perfil;
+    const isNew = tx.hash === S.lastTx ? "new" : "";
+    if (tx.kind === "firma") {
+      return `<div class="tx ${isNew}"><div class="line"><span class="pill p-chain">Firma off-chain</span><span>${fmtHora(tx.ts)}</span></div><div class="fn">EIP-712 · ${esc(tx.tipo)} <em>por ${esc(p?.nombre || "")}</em></div><div class="line">${esc(tx.detalle)}</div></div>`;
+    }
+    const evs = tx.events.length ? `<div class="evs">${tx.events.map((x) => `<span>${x.name}</span>`).join("")}</div>` : "";
+    const detail = tx.status === "ok" ? tx.events.map((x) => `${x.contrato}.${x.name}(\n${Object.entries(x.args).map(([k, v]) => `  ${k}: ${fmtArg(v)}`).join("\n")}\n)`).join("\n") : `revert ${tx.error.errName}()\nselector ${tx.error.selector}\n${ERR_MSG[tx.error.errName] || ""}`;
+    return `<div class="tx ${isNew}">
+      <div class="line">${tx.status === "ok" ? `<span class="pill p-ok">Confirmada</span>` : `<span class="pill p-bad">Revertida</span>`}<span class="num">#${tx.block.toLocaleString("es-AR")}</span><span class="num">${tx.gas.toLocaleString("es-AR")} gas</span></div>
+      <div class="fn">${esc(tx.contrato)}.${esc(tx.fn)}() <em>· ${esc(p?.nombre || "")}${tx.value ? " · " + POL(tx.value, 3) : ""}</em></div>
+      ${tx.status === "revert" ? `<div class="revert">${esc(tx.error.errName)}() · ${tx.error.selector}</div>` : evs}
+      <details><summary>${shortH(tx.hash)}</summary><pre>${esc(detail)}</pre></details>
+    </div>`;
+  }).join("") || `<p class="muted">Sin transacciones.</p>`;
+}
+function renderSide() { renderClock(); renderMachines(); renderLog(); }
+
+/* ------------------------------ render principal ------------------------------ */
+function render(full) {
+  renderTabs(); renderWalletBtn(); renderBanner(); renderSide();
+  const v = S.view;
+  // El formulario del organizador no se redibuja en cada render para no perder el foco.
+  if (v === "organizador" && !full && $("#fEvento")) { const tbl = $("#evTable"); if (tbl) tbl.innerHTML = tablaEventos(); actualizarFormOrg(); return; }
+  const html = { organizador: viewOrganizador, cartelera: viewCartelera, "mis-entradas": viewMisEntradas, reventa: viewReventa, puerta: viewPuerta, fondos: viewFondos }[v]();
+  $("#view").innerHTML = html;
+  if (v === "organizador") actualizarFormOrg();
+}
+
+/* ------------------------------ eventos de UI ------------------------------ */
+document.addEventListener("click", async (e) => {
+  const b = e.target.closest("button, [data-selev], [data-selt], .overlay");
+  if (!b) return;
+  const d = b.dataset;
+  if (b.classList.contains("overlay")) { if (e.target === b && b.closest("#walletRoot") && !walletResolve) closeWallet(); if (e.target === b && b.closest("#modalRoot") && !CK) { cerrarQR(); } return; }
+  if (b.id === "walletBtn") return openWalletPicker();
+  if (d.wallet) return setWallet(d.wallet);
+  if (d.close !== undefined && b.closest("#walletRoot")) return closeWallet();
+  if (d.close !== undefined) { $("#modalRoot").innerHTML = ""; return; }
+  if (d.go) { CK = null; $("#modalRoot").innerHTML = ""; return go(d.go); }
+  if (d.adv) { S.offset += Number(d.adv); S.block += Math.floor(Number(d.adv) / 2); return render(); }
+  if (d.jump) { const ev = S.eventos[S.selEvento]; const target = d.jump === "fecha" ? ev.fechaHora + 60 : ev.fechaHora + MARGEN_CIERRE + 60; if (target > now()) { S.block += Math.floor((target - now()) / 2); S.offset += target - now(); } else toast("El reloj ya pasó ese momento.", ""); return render(); }
+  if (b.id === "btnReset") return boot(true);
+  if (d.cancel) return oraculo("cancelarEvento", Number(d.cancel));
+  if (d.closeEv) return oraculo("cerrarEvento", Number(d.closeEv));
+  if (d.selev && !e.target.closest("button")) { S.selEvento = Number(d.selev); return render(); }
+  if (d.buy) return abrirCheckout("primaria", Number(d.buy));
+  if (d.buyres) return abrirCheckout("reventa", Number(d.buyres));
+  if (d.ckClose !== undefined) { CK = null; return renderCheckout(); }
+  if (d.ckMis !== undefined) { CK = null; renderCheckout(); return go("mis-entradas"); }
+  if (b.id === "ckNext1") { CK.step = 2; CK.firma = null; CK.rechazo = null; return renderCheckout(); }
+  if (b.id === "ckBack") { CK.step -= 1; if (CK.step === 1) CK.firma = null; return renderCheckout(); }
+  if (b.id === "ckVerif") return ckVerificar();
+  if (b.id === "ckNext2") { CK.step = 3; return renderCheckout(); }
+  if (b.id === "ckPay") return ckPagar();
+  if (b.id === "ckRetry") { CK.step = 1; CK.firma = null; CK.resultado = null; CK.ataque = { firmaPropia: false, monto: false }; return renderCheckout(); }
+  if (d.qr) { S.selToken = Number(d.qr); renderSide(); return abrirQR(Number(d.qr)); }
+  if (d.qrClose !== undefined) return cerrarQR();
+  if (b.id === "qrRenew") return renovarQR();
+  if (d.goDoor !== undefined) { cerrarQR(); return go("puerta"); }
+  if (d.sell) return abrirReventa(Number(d.sell));
+  if (b.id === "rv_ok") return publicar(Number(b.dataset.token));
+  if (d.p2p) return abrirP2P(Number(d.p2p));
+  if (b.id === "p2p_ok") return p2p(Number(b.dataset.token));
+  if (d.unlist) return retirarPub(Number(d.unlist));
+  if (d.refund) return reembolso(Number(d.refund));
+  if (d.scan) { const q = S.qrs[Number(d.scan)]; return validarPuerta({ tokenId: q.tokenId, timestamp: q.timestamp, compromiso: q.compromiso, firma: q.firma }); }
+  if (b.id === "doorGo") return validarPuerta($("#door_payload").value);
+  if (d.doorAtk) return ataquePuerta(d.doorAtk);
+  if (b.id === "btnRetirar") return enviarTx({ fromKey: S.cur, contrato: "EventManager", fn: "retirarFondos", args: [["monto", POL(S.saldos[lc(cur().address)] || 0n)]], run: (m) => EventManager.retirarFondos(m) });
+  if (d.selt && !e.target.closest("button")) { S.selToken = Number(d.selt); S.selEvento = S.entradas[S.selToken].idEvento; document.querySelectorAll(".ticket").forEach((x) => x.classList.toggle("sel", x.dataset.selt === d.selt)); return renderSide(); }
+});
+document.addEventListener("input", (e) => {
+  const t = e.target;
+  if (t.closest("#fEvento")) return actualizarFormOrg();
+  if (t.id === "ck_nombre" || t.id === "ck_dni") {
+    CK[t.id === "ck_nombre" ? "nombre" : "dni"] = t.id === "ck_dni" ? t.value.replace(/\D/g, "") : t.value;
+    const pos = t.selectionStart, id = t.id; renderCheckout(); const n = $("#" + id); n.focus(); try { n.setSelectionRange(pos, pos); } catch {} return;
+  }
+  if (t.id === "rv_precio") return actualizarReventa(Number($("#rv_ok").dataset.token));
+  if (t.id === "door_payload") DOOR.payloadText = t.value;
+});
+document.addEventListener("change", (e) => {
+  const t = e.target;
+  if (t.closest("#fEvento")) return actualizarFormOrg();
+  if (t.id === "ck_atk_firma") { CK.ataque.firmaPropia = t.checked; CK.firma = null; return renderCheckout(); }
+  if (t.id === "ck_atk_monto") { CK.ataque.monto = t.checked; return renderCheckout(); }
+  if (t.id === "autoConfirm") S.autoConfirm = t.checked;
+});
+document.addEventListener("submit", (e) => { if (e.target.id === "fEvento") submitEvento(e); });
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") { if ($("#walletRoot").innerHTML && !walletResolve) closeWallet(); else if (QRS) cerrarQR(); } });
+setInterval(() => { if (!S) return; const c = $("#clockNow"); if (c) c.textContent = fmtFecha(now()); const dq = $("#doorQueue"); if (dq) dq.innerHTML = filaHTML(); }, 5000);
+// walletResolve se limpia al cerrar
+const _close = closeWallet; closeWallet = function () { walletResolve = null; _close(); };
+
+/* ------------------------------ arranque y escenario inicial ------------------------------ */
+async function seed() {
+  const run = (fromKey, contrato, fn, args, value, f) => { const r = ejecutar({ fromKey, contrato, fn, args, value, run: f, silent: true }); if (!r.ok) console.warn("seed", fn, r); return r; };
+  const base = now();
+  const fecha = (dias, hora) => { const d = new Date((base + dias * 86400) * 1000); d.setHours(hora, 0, 0, 0); return Math.floor(d.getTime() / 1000); };
+  const evs = [
+    { idEvento: 1, nombre: "Sierras Sónicas — Gira Aniversario", tipo: "Recital", fechaHora: fecha(12, 21), lugar: "Estadio Mario A. Kempes, Córdoba", artista: addrOf("artista"), plataforma: addrOf("plataforma"), precioBase: toWei("12"), capacidad: 120, topeBps: 2000, regaliaBps: 500, comisionBps: 300, limitePorPersona: 2, maxTransferencias: 2, requiereAdmision: false },
+    { idEvento: 2, nombre: "Clásico cordobés · Fecha 14", tipo: "Futbol", fechaHora: fecha(5, 17), lugar: "Estadio Kempes · Platea Sur", artista: addrOf("plataforma"), plataforma: addrOf("plataforma"), precioBase: toWei("8"), capacidad: 300, topeBps: 1000, regaliaBps: 0, comisionBps: 500, limitePorPersona: 1, maxTransferencias: 1, requiereAdmision: true },
+    { idEvento: 3, nombre: "Ciudad Docta Stand-up", tipo: "Espectaculo", fechaHora: fecha(20, 22), lugar: "Teatro del Libertador, Córdoba", artista: addrOf("artista"), plataforma: addrOf("plataforma"), precioBase: toWei("6.5"), capacidad: 40, topeBps: 1500, regaliaBps: 800, comisionBps: 200, limitePorPersona: 4, maxTransferencias: 3, requiereAdmision: false },
+  ];
+  for (const p of evs) run("org", "EventManager", "crearEvento", [["idEvento", p.idEvento], ["nombre", p.nombre]], 0n, (m) => EventManager.crearEvento(m, p));
+  const comprar = async (key, idEvento) => {
+    const dni = W[key].perfil.dni, salt = saltPara(dni), comp = compromisoDe(dni, salt);
+    S.ident[key] = { nombre: W[key].perfil.nombre, dni, salt, compromiso: comp };
+    const firma = await firmarVerificacion(W.verif.wallet, comp, addrOf(key), idEvento);
+    return run(key, "EventManager", "comprarEntrada", [["idEvento", idEvento]], S.eventos[idEvento].precioBase, (m) => EventManager.comprarEntrada(m, idEvento, comp, firma));
+  };
+  await comprar("ana", 1);
+  await comprar("bruno", 1);
+  await comprar("bruno", 3);
+  const tid = S.nextTokenId - 2; // entrada de Bruno para el evento 1
+  run("bruno", "ReventaMarketplace", "publicarReventa", [["idToken", tid]], 0n, (m) => Marketplace.publicarReventa(m, tid, toWei("13.8")));
+  S.selEvento = 1; S.selToken = 1; S.lastTx = null;
+}
+async function boot(reset) {
+  if (!Object.keys(W).length) {
+    for (let i = 0; i < PERFILES.length; i++) {
+      const wallet = E.Wallet.fromMnemonic(MNEMONIC, `m/44'/60'/0'/0/${i}`);
+      W[PERFILES[i].key] = { perfil: PERFILES[i], wallet, address: wallet.address };
+      BY_ADDR[wallet.address.toLowerCase()] = W[PERFILES[i].key];
+    }
+  }
+  const keep = S ? { autoConfirm: S.autoConfirm } : {};
+  S = freshState(); Object.assign(S, keep);
+  CK = null; QRS = null; DOOR = { payloadText: "", resultado: null }; formDraft = null; $("#modalRoot").innerHTML = "";
+  await seed();
+  const h = location.hash.slice(1);
+  S.view = VIEWS.find((v) => v.id === h) ? h : "organizador";
+  render(true);
+  if (reset) toast("Demo reiniciada con el escenario inicial.", "");
+}
+if (!window.ethers) { $("#view").innerHTML = `<div class="empty">No se pudo cargar ethers.js desde cdnjs. Revisá la conexión y recargá.</div>`; }
+else boot(false).catch((err) => { console.error(err); $("#view").innerHTML = `<div class="empty">Error al iniciar: ${esc(err.message)}</div>`; });
+</script>
