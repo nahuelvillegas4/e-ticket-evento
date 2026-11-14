@@ -1,7 +1,7 @@
 {
   "red": "amoy",
   "chainId": 80002,
-  "fecha": "2026-11-12T21:06:22.405Z",
+  "fecha": "2026-11-13T21:10:40.384Z",
   "admin": "0x3E07eaf43fC8202A3FA9e3c73A2245a1a0fE70ED",
   "roles": {
     "organizador": "0x3E07eaf43fC8202A3FA9e3c73A2245a1a0fE70ED",
@@ -10,69 +10,69 @@
     "validador": "0x3E07eaf43fC8202A3FA9e3c73A2245a1a0fE70ED"
   },
   "contratos": {
-    "EntradaNFT": "0x091e9EEb34181D89d5C3F3171D31036B688909cb",
-    "EventManager": "0x321375bd30Fd031E9F44EF6eCCC6aB23bb32B09a",
-    "ReventaMarketplace": "0x0423B4398a5d3Cc2CAfeb38Ada5039813afaaC75"
+    "EntradaNFT": "0x368bC4b17615451372d5c5B3DD91dEC8A6dFbB6d",
+    "EventManager": "0x61aC0DFEf4A6D9959B42b07fD907EC60EBcf9c0a",
+    "ReventaMarketplace": "0x430B41b2CD9fC8c94E7D4Bed55b3848979c2848A"
   },
   "transacciones": [
     {
       "descripcion": "deploy EntradaNFT",
-      "hash": "0xc2009021687b3cab0cc23b9e33287c0a3e6c58cebc4aa5ae7ae9b482749bb73c",
+      "hash": "0x9b76081d36f7f272959d9534ff2b021dd1804e843d4861849b84596b6a93c095",
       "gasUsed": "2158369"
     },
     {
       "descripcion": "deploy EventManager",
-      "hash": "0x1a920d63e30309fbadd74eb9e14fad5d29d94a6f6bd198cc8ba0e4b5c3443ae4",
+      "hash": "0x868542291d342465c7f46dbbb8bf76d9f3d722f8bda9a7bdafca84beefe9713d",
       "gasUsed": "2396286"
     },
     {
       "descripcion": "deploy ReventaMarketplace",
-      "hash": "0x238caa393cf2ae11eb9b4e64527cd02b2faecdb28a6931674b7e42052f23e71a",
+      "hash": "0x6384b73377545e08c05f45b41df69051e99d13c6332722316cd375f9752bab76",
       "gasUsed": "1554685"
     },
     {
       "descripcion": "EntradaNFT.setEventManager",
-      "hash": "0xf21b382680c60023c7b52322e991011c39f4f2743973f638476210574386f99e",
+      "hash": "0xb7806fa0a40c03ab4fae55fcf279b30a3cd08b4659ba45ff6beee7c515af3d78",
       "gasUsed": "53058"
     },
     {
       "descripcion": "EventManager.setMarketplace",
-      "hash": "0xb1437b0f3467dcbf725b1f26b3a66017ad7678a2b9fa7f69d529fd03b34136a8",
+      "hash": "0x3dddbad2d31771ce3d42f20151726d1d6bdd6f6c8e2dd2391c20605187dfe088",
       "gasUsed": "53045"
     },
     {
       "descripcion": "OPERADOR_ROLE -> EventManager",
-      "hash": "0xf765bde246370b899dae32be0c05d8daf4232916dd6bbc7a409e82b1398de758",
+      "hash": "0x6446cefeeea9478961e06ef1e03ee981edbc07145a342e20d4c94ba4651ef6e6",
       "gasUsed": "61305"
     },
     {
       "descripcion": "OPERADOR_ROLE -> Marketplace",
-      "hash": "0xd47081611d1c3c0773c9385ce3036eb19ea5d1c997455ba8108d5058f62878e6",
+      "hash": "0xf35b277d1b5f0be41b6085803ca2d312893e981242fec9a9d68ce05edaffe15f",
       "gasUsed": "61305"
     },
     {
       "descripcion": "VALIDADOR_ROLE",
-      "hash": "0x2a95a69778ef27e0b37efc54a038a1a191ab6ba2a40edbdbfc5ff92ca5fffa94",
+      "hash": "0x30ce44f948e9aef2ba1e065eabb8454bb1cc1e5729892e631db3d0e9f77050c8",
       "gasUsed": "61305"
     },
     {
       "descripcion": "MARKETPLACE_ROLE -> Marketplace",
-      "hash": "0x4091ad55c27dd962c7306831693c80b458cfe6224d4367e13423dab0a5686fdd",
+      "hash": "0x0a55cd1bd7da6364672128f5ae180fd18d3dd89051cb7d94980ef5f56b115b04",
       "gasUsed": "61254"
     },
     {
       "descripcion": "ORGANIZADOR_ROLE",
-      "hash": "0xdc67b80989668bf6f4ebac26a238b18ca8d9d3bb3779dede27d4fab766fd0983",
+      "hash": "0xcc69c41058c184f861cfbecb1b989a54bf599f8e81467cc169c7d7b58d949ef0",
       "gasUsed": "61254"
     },
     {
       "descripcion": "ORACULO_ROLE",
-      "hash": "0xd0482ee477aa13df71d0b030067c9155696cdee0cbaa9188e897e22fec682a3d",
+      "hash": "0x763fbac9bda499e11e0036e2fb0d7e6b372fd26157a7d6a530e3a589b077382c",
       "gasUsed": "61254"
     },
     {
       "descripcion": "VERIFICADOR_ROLE",
-      "hash": "0x84411572beccfd184d6f485d9d812a51ebee20d2aaf7451c8be15e7514b67571",
+      "hash": "0x001e56a136eac9986f15ac97e5b815ad03e0951ce1e511fa12bc03869be64213",
       "gasUsed": "61242"
     }
   ]

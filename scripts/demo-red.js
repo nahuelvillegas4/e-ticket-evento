@@ -9,6 +9,7 @@
  */
 const fs = require("fs");
 const path = require("path");
+const readline = require("readline");
 const hre = require("hardhat");
 const { ethers } = hre;
 const {
@@ -26,6 +27,35 @@ const GREEN = "\x1b[32m";
 const YELLOW = "\x1b[33m";
 const MAGENTA = "\x1b[35m";
 const GRAY = "\x1b[90m";
+
+async function pausar(siguientePaso) {
+  if (process.env.SIN_PAUSA === "1" || process.stdin.readableEnded || process.stdin.destroyed) {
+    return;
+  }
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+  await new Promise((resolve) => {
+    let resuelto = false;
+    const finalizar = () => {
+      if (!resuelto) {
+        resuelto = true;
+        rl.close();
+        resolve();
+      }
+    };
+    rl.once("close", finalizar);
+    try {
+      rl.question(
+        `\n${YELLOW}⏸  Presioná [ENTER] para ${siguientePaso}...${RESET}`,
+        () => finalizar()
+      );
+    } catch (_) {
+      finalizar();
+    }
+  });
+}
 
 const red = hre.network.name;
 const EXPLORADOR = red === "amoy" ? "https://amoy.polygonscan.com" : null;
@@ -171,6 +201,8 @@ async function main() {
 
   const saldoInicialAdmin = await ethers.provider.getBalance(admin.address);
 
+  await pausar("avanzar al Paso 1: Creación del evento por el Organizador");
+
   // ---------------------------------------------------------------- 1. Evento
   titulo("1. CREACIÓN DEL EVENTO (Organizador)");
   const precio = ethers.parseEther(process.env.PRECIO_ENTRADA || (ES_LOCAL ? "0.1" : "0.001"));
@@ -183,6 +215,8 @@ async function main() {
     ),
     `Evento ${idEvento} creado: precio ${fmt(precio)}, tope +20 %, regalía 10 %, comisión 5 %, 2 por DNI`
   );
+
+  await pausar("avanzar al Paso 2: Compra primaria con identidad verificada (Lazy Mint)");
 
   // ---------------------------------------------------------------- 2. Compra
   titulo("2. COMPRA PRIMARIA CON IDENTIDAD VERIFICADA (se acuña el NFT)");
@@ -197,20 +231,54 @@ async function main() {
   const tokenId = tokenDeRecibo(r1, eventManager);
   console.log(`  Entrada #${tokenId} · titular ${await entradaNFT.ownerOf(tokenId)} · estado '${await entradaNFT.estadoEfectivo(tokenId)}'`);
 
+  await pausar("avanzar al Paso 3: Ataque de transferencia P2P fuera de la plataforma");
+
   // ---------------------------------------------------------------- 3. Ataques
   titulo("3. ATAQUE: transferencia directa fuera de la plataforma (P2P)");
+  console.log(`  • Acción intentada:  EntradaNFT.transferFrom(Comprador 1 → Comprador 2, token #${tokenId})`);
+  console.log(`  • Emisor (Titular):  ${comprador1.address}`);
+  console.log(`  • Receptor (P2P):    ${comprador2.address} (intentando eludir ReventaMarketplace)`);
+  console.log(`  • Regla en contrato: Hook _update() exige OPERADOR_ROLE para transferir entre billeteras`);
   await esperarRechazo(
-    () => entradaNFT.connect(comprador1).transferFrom(comprador1.address, comprador2.address, tokenId),
+    () =>
+      entradaNFT
+        .connect(comprador1)
+        .transferFrom(comprador1.address, comprador2.address, tokenId, { gasLimit: 150000 }),
     "TransferenciaDirectaBloqueada",
-    todos
+    todos,
+    { explorador: EXPLORADOR, transacciones, descripcion: "Ataque P2P bloqueado (transferFrom)" }
+  );
+  const datosPostP2P = await entradaNFT.obtenerEntrada(tokenId);
+  console.log(
+    `  • [Estado on-chain tras el rechazo] Titular: ${await entradaNFT.ownerOf(tokenId)} (sin cambios) · Estado: '${await entradaNFT.estadoEfectivo(tokenId)}' · Transferencias: ${datosPostP2P.cantTransferencias}`
   );
 
+  await pausar("avanzar al Paso 4: Ataque de reventa con sobreprecio (+50 %)");
+
   titulo("4. ATAQUE: reventa con sobreprecio (+50 %, el tope es +20 %)");
-  await esperarRechazo(
-    () => marketplace.connect(comprador1).publicarReventa(tokenId, (precio * 150n) / 100n),
-    "PrecioSuperaTope",
-    todos
+  const precioAbusivo = (precio * 150n) / 100n;
+  const infoEvento = await eventManager.obtenerEvento(idEvento);
+  const precioMaximoLegal = (precio * (10000n + infoEvento.topeReventaBps)) / 10000n;
+  console.log(`  • Acción intentada:  ReventaMarketplace.publicarReventa(token #${tokenId}, ${fmt(precioAbusivo)})`);
+  console.log(`  • Emisor (Vendedor): ${comprador1.address}`);
+  console.log(
+    `  • Regla en contrato: Precio base ${fmt(precio)} + tope +${Number(infoEvento.topeReventaBps) / 100} % (${infoEvento.topeReventaBps} bps) → Máximo legal: ${fmt(precioMaximoLegal)}`
   );
+  console.log(
+    `  • Sobreprecio:       Intenta publicar a ${fmt(precioAbusivo)} (+50 %, excede el máximo legal en ${fmt(precioAbusivo - precioMaximoLegal)})`
+  );
+  await esperarRechazo(
+    () => marketplace.connect(comprador1).publicarReventa(tokenId, precioAbusivo, { gasLimit: 150000 }),
+    "PrecioSuperaTope",
+    todos,
+    { explorador: EXPLORADOR, transacciones, descripcion: "Ataque de sobreprecio bloqueado (publicarReventa)" }
+  );
+  const pubActivaPostAtaque = await marketplace.tokenAPublicacionActiva(tokenId);
+  console.log(
+    `  • [Estado on-chain tras el rechazo] Publicación activa: #${pubActivaPostAtaque} (ninguna) · Titular: ${await entradaNFT.ownerOf(tokenId)} · Estado: '${await entradaNFT.estadoEfectivo(tokenId)}'`
+  );
+
+  await pausar("avanzar al Paso 5: Reventa regulada (+15 %) y reparto automático (Split)");
 
   // ---------------------------------------------------------------- 5. Reventa
   titulo("5. REVENTA REGULADA Y REPARTO AUTOMÁTICO");
@@ -247,15 +315,18 @@ async function main() {
   console.log(`    Vendedor (85 %):  ${fmt((await eventManager.saldosPendientes(comprador1.address)) - antes.vendedor)}`);
   await enviar(eventManager.connect(comprador1).retirarFondos(), "Comprador 1 retira lo que le corresponde (patrón pull)");
 
+  await pausar("avanzar al Paso 6: Control de acceso en puerta con QR dinámico");
+
   // ---------------------------------------------------------------- 6. Acceso
   titulo("6. CONTROL DE ACCESO CON QR DINÁMICO");
   let ts = await horaDeBloque();
   let qr = await firmarAccesoQR(comprador2, dirNFT, tokenId, ts);
   console.log("  Alguien sin VALIDADOR_ROLE intenta validar el ingreso...");
   await esperarRechazo(
-    () => entradaNFT.connect(comprador1).validarIngreso(tokenId, compromiso2, ts, qr),
+    () => entradaNFT.connect(comprador1).validarIngreso(tokenId, compromiso2, ts, qr, { gasLimit: 150000 }),
     "AccessControlUnauthorizedAccount",
-    todos
+    todos,
+    { explorador: EXPLORADOR, transacciones, descripcion: "Intento de validar ingreso sin VALIDADOR_ROLE" }
   );
   ts = await horaDeBloque();
   qr = await firmarAccesoQR(comprador2, dirNFT, tokenId, ts);
@@ -263,10 +334,13 @@ async function main() {
   console.log(`  Estado de la entrada: '${await entradaNFT.estadoEfectivo(tokenId)}'`);
   console.log("  Se intenta volver a entrar con la misma entrada...");
   await esperarRechazo(
-    () => entradaNFT.connect(admin).validarIngreso(tokenId, compromiso2, ts, qr),
+    () => entradaNFT.connect(admin).validarIngreso(tokenId, compromiso2, ts, qr, { gasLimit: 150000 }),
     "EntradaNoValidaParaIngreso",
-    todos
+    todos,
+    { explorador: EXPLORADOR, transacciones, descripcion: "Ataque replay QR bloqueado (validarIngreso)" }
   );
+
+  await pausar("avanzar al Paso 7: Cancelación del evento por el Oráculo y reembolso");
 
   // ---------------------------------------------------------------- 7. Cancelación
   titulo("7. CANCELACIÓN DEL EVENTO Y REEMBOLSO (estado Reembolsada)");
@@ -290,7 +364,14 @@ async function main() {
   console.log(`  Entrada #${tokenB}: estado '${await entradaNFT.estadoEfectivo(tokenB)}' · saldo a retirar ${fmt(await eventManager.saldosPendientes(comprador1.address))}`);
   await enviar(eventManager.connect(comprador1).retirarFondos(), "Comprador 1 retira el reembolso");
   console.log("  Se intenta reclamar el reembolso de nuevo...");
-  await esperarRechazo(() => eventManager.connect(comprador1).reclamarReembolso(tokenB), "YaReembolsada", todos);
+  await esperarRechazo(
+    () => eventManager.connect(comprador1).reclamarReembolso(tokenB, { gasLimit: 150000 }),
+    "YaReembolsada",
+    todos,
+    { explorador: EXPLORADOR, transacciones, descripcion: "Intento de doble reembolso bloqueado (reclamarReembolso)" }
+  );
+
+  await pausar("avanzar al Paso 8: Cierre del evento y entrada Vencida");
 
   // ---------------------------------------------------------------- 8. Cierre
   titulo("8. CIERRE DEL EVENTO Y ENTRADA VENCIDA");
@@ -303,7 +384,12 @@ async function main() {
     );
     const tokenSinUso = tokenDeRecibo(r4, eventManager);
     console.log("  Intento de cerrar antes de tiempo...");
-    await esperarRechazo(() => eventManager.connect(admin).cerrarEvento(idEvento), "FueraDeTermino", todos);
+    await esperarRechazo(
+      () => eventManager.connect(admin).cerrarEvento(idEvento, { gasLimit: 150000 }),
+      "FueraDeTermino",
+      todos,
+      { explorador: EXPLORADOR, transacciones, descripcion: "Intento de cierre anticipado bloqueado (cerrarEvento)" }
+    );
     console.log(`${YELLOW}  ⏩ Se adelanta el reloj de la red local 8 días (solo posible en una red de prueba local)${RESET}`);
     await hre.network.provider.send("evm_increaseTime", [8 * 24 * 3600]);
     await hre.network.provider.send("evm_mine", []);
@@ -316,6 +402,8 @@ async function main() {
     console.log("  Este paso se muestra en el nodo local o con el test CP-25 (npx hardhat test).");
   }
 
+  await pausar("finalizar la demo y mostrar el resumen de transacciones");
+
   // ---------------------------------------------------------------- Resumen
   if (!ES_LOCAL) {
     titulo("9. DEVOLUCIÓN DEL SOBRANTE DE LOS COMPRADORES");
@@ -325,7 +413,11 @@ async function main() {
   titulo("RESUMEN");
   const totalGas = transacciones.reduce((s, t) => s + t.gas, 0n);
   const totalCosto = transacciones.reduce((s, t) => s + t.gas * t.precio, 0n);
-  console.log(`  Transacciones enviadas: ${transacciones.length}`);
+  const exitosas = transacciones.filter((t) => !t.revertida).length;
+  const revertidas = transacciones.filter((t) => t.revertida).length;
+  console.log(
+    `  Transacciones enviadas: ${transacciones.length} (${exitosas} exitosas · ${revertidas} ataques revertidos on-chain)`
+  );
   console.log(`  Gas total: ${totalGas} · costo total en comisiones de red: ${fmt(totalCosto)}`);
   if (!ES_LOCAL) {
     const saldoFinalAdmin = await ethers.provider.getBalance(admin.address);

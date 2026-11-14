@@ -1,3 +1,4 @@
+const readline = require("readline");
 const { ethers } = require("hardhat");
 const {
   generarCompromiso,
@@ -15,6 +16,35 @@ const GREEN = "\x1b[32m";
 const YELLOW = "\x1b[33m";
 const RED = "\x1b[31m";
 const MAGENTA = "\x1b[35m";
+
+async function pausar(siguientePaso) {
+  if (process.env.SIN_PAUSA === "1" || process.stdin.readableEnded || process.stdin.destroyed) {
+    return;
+  }
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+  await new Promise((resolve) => {
+    let resuelto = false;
+    const finalizar = () => {
+      if (!resuelto) {
+        resuelto = true;
+        rl.close();
+        resolve();
+      }
+    };
+    rl.once("close", finalizar);
+    try {
+      rl.question(
+        `\n${YELLOW}⏸  Presioná [ENTER] para ${siguientePaso}...${RESET}`,
+        () => finalizar()
+      );
+    } catch (_) {
+      finalizar();
+    }
+  });
+}
 
 function banner(titulo) {
   console.log(`\n${CYAN}========================================================================${RESET}`);
@@ -55,6 +85,8 @@ async function main() {
   console.log(`  • Comprador 1:   ${comprador1.address}`);
   console.log(`  • Comprador 2:   ${comprador2.address}`);
 
+  await pausar("avanzar al Paso 1: Despliegue y arquitectura de contratos");
+
   // 1. Despliegue
   subheader("1. DESPLIEGUE Y ARQUITECTURA DE CONTRATOS");
   const EntradaNFTFactory = await ethers.getContractFactory("EntradaNFT");
@@ -87,6 +119,8 @@ async function main() {
 
   console.log(`${GREEN}✔ Contratos desplegados y roles concedidos bajo AccessControl.${RESET}`);
 
+  await pausar("avanzar al Paso 2: Creación del evento por el Organizador");
+
   // 2. Crear Evento
   subheader("2. CREACIÓN DEL EVENTO POR EL ORGANIZADOR");
   const idEvento = 101;
@@ -113,6 +147,8 @@ async function main() {
   );
   console.log(`${GREEN}✔ Evento 101 registrado: 'Recital de Rock - Kempes 2026'${RESET}`);
   console.log(`  Reglas: Tope Reventa = +20% | Regalía = 10% | Comisión = 5% | Límite por DNI = 2`);
+
+  await pausar("avanzar al Paso 3: Compra primaria con identidad verificada (Lazy Mint)");
 
   // 3. Compra Primaria
   subheader("3. COMPRA PRIMARIA CON IDENTIDAD VERIFICADA (LAZY MINT)");
@@ -144,28 +180,55 @@ async function main() {
   const datosIniciales = await entradaNFT.obtenerEntrada(1);
   const estadoInicial = await entradaNFT.estadoEfectivo(1);
   const titularInicial = await entradaNFT.ownerOf(1);
-  console.log(`  [Consulta on-chain] Titular: ${titularInicial} | Estado DTE: '${estadoInicial}' | Precio Original: ${ethers.formatEther(datosIniciales.precioOriginal)} ETH | Transferencias: ${datosIniciales.cantTransferencias}`);
+  console.log(`  [Consulta on-chain] Titular: ${titularInicial} | Estado DTE: '${estadoInicial}' | Precio Original: ${ethers.formatEther(datosIniciales.precioOriginal)} ETH | Transferencias: 0`);
+
+  await pausar("avanzar al Paso 4: Ataque de transferencia P2P fuera de la plataforma");
 
   // 4. Intento de Fraude P2P
   subheader("4. DEMOSTRACIÓN DE SEGURIDAD: INTENTO DE REVENTA PARALELA P2P");
-  console.log(`  Comprador 1 intenta transferir directamente el NFT a Comprador 2 mediante transferFrom()...`);
+  console.log(`  • Acción intentada:  EntradaNFT.transferFrom(Comprador 1 → Comprador 2, token #1)`);
+  console.log(`  • Emisor (Titular):  ${comprador1.address}`);
+  console.log(`  • Receptor (P2P):    ${comprador2.address} (intentando eludir ReventaMarketplace)`);
+  console.log(`  • Regla en contrato: Hook _update() exige OPERADOR_ROLE para transferir entre billeteras`);
   await esperarRechazo(
-    () => entradaNFT.connect(comprador1).transferFrom(comprador1.address, comprador2.address, 1),
+    () =>
+      entradaNFT
+        .connect(comprador1)
+        .transferFrom(comprador1.address, comprador2.address, 1, { gasLimit: 150000 }),
     "TransferenciaDirectaBloqueada",
     [entradaNFT, eventManager, marketplace]
   );
-  console.log(`  El hook _update prohíbe transferencias directas fuera del contrato oficial.`);
+  const datosPostP2P = await entradaNFT.obtenerEntrada(1);
+  console.log(
+    `  • [Estado on-chain tras el rechazo] Titular: ${await entradaNFT.ownerOf(1)} (sin cambios) · Estado: '${await entradaNFT.estadoEfectivo(1)}' · Transferencias: ${datosPostP2P.cantTransferencias}`
+  );
+
+  await pausar("avanzar al Paso 5: Ataque de reventa con sobreprecio (+50 %)");
 
   // 5. Intento de Reventa Abusiva
   subheader("5. DEMOSTRACIÓN DE NEGOCIO: TOPE MÁXIMO DE REVENTA");
   const precioAbusivo = ethers.parseEther("0.15"); // +50%, tope es +20% (0.12)
-  console.log(`  Comprador 1 intenta publicar la entrada a 0.15 ETH (supera el tope legal del 20%)...`);
+  const infoEvento = await eventManager.obtenerEvento(idEvento);
+  const precioMaximoLegal = (precioBase * (10000n + infoEvento.topeReventaBps)) / 10000n;
+  console.log(`  • Acción intentada:  ReventaMarketplace.publicarReventa(token #1, ${ethers.formatEther(precioAbusivo)} ETH)`);
+  console.log(`  • Emisor (Vendedor): ${comprador1.address}`);
+  console.log(
+    `  • Regla en contrato: Precio base ${ethers.formatEther(precioBase)} ETH + tope +${Number(infoEvento.topeReventaBps) / 100} % (${infoEvento.topeReventaBps} bps) → Máximo legal: ${ethers.formatEther(precioMaximoLegal)} ETH`
+  );
+  console.log(
+    `  • Sobreprecio:       Intenta publicar a ${ethers.formatEther(precioAbusivo)} ETH (+50 %, excede el máximo legal en ${ethers.formatEther(precioAbusivo - precioMaximoLegal)} ETH)`
+  );
   await esperarRechazo(
-    () => marketplace.connect(comprador1).publicarReventa(1, precioAbusivo),
+    () => marketplace.connect(comprador1).publicarReventa(1, precioAbusivo, { gasLimit: 150000 }),
     "PrecioSuperaTope",
     [entradaNFT, eventManager, marketplace]
   );
-  console.log(`  El contrato inteligente impide por código la especulación abusiva.`);
+  const pubActivaPostAtaque = await marketplace.tokenAPublicacionActiva(1);
+  console.log(
+    `  • [Estado on-chain tras el rechazo] Publicación activa: #${pubActivaPostAtaque} (ninguna) · Titular: ${await entradaNFT.ownerOf(1)} · Estado: '${await entradaNFT.estadoEfectivo(1)}'`
+  );
+
+  await pausar("avanzar al Paso 6: Reventa regulada (+15 %) y reparto automático (Split)");
 
   // 6. Reventa Legal y Split de Fondos
   subheader("6. REVENTA REGULADA Y REPARTO AUTOMÁTICO DE FONDOS (SPLIT)");
@@ -204,6 +267,8 @@ async function main() {
   console.log(`  • Ticketera (Comisión del 5%):        ${ethers.formatEther(saldoPlataforma)} ETH`);
   console.log(`  • Vendedor Secundario (Neto 85%):      ${ethers.formatEther(saldoVendedor)} ETH`);
 
+  await pausar("avanzar al Paso 7: Control de acceso en puerta, QR dinámico y anti-replay");
+
   // 7. Control de Acceso y Permisos
   subheader("7. CONTROL DE ACCESO EN PUERTA: PERMISOS, QR DINÁMICO Y ANTI-REPLAY");
   const ahora = (await ethers.provider.getBlock("latest")).timestamp;
@@ -227,6 +292,8 @@ async function main() {
     "EntradaNoValidaParaIngreso",
     [entradaNFT, eventManager, marketplace]
   );
+
+  await pausar("avanzar al Paso 8: Gobernanza del Escrow y retiro de fondos (Patrón Pull)");
 
   // 8. Gobernanza del Escrow y Retiro de Fondos (Pull Pattern)
   subheader("8. GOBERNANZA DEL ESCROW Y LIQUIDACIÓN SEGURA (PATRÓN PULL)");
