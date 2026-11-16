@@ -179,19 +179,31 @@ async function enviar({ actor, signer, contrato, nombreContrato, metodo, args, v
 }
 
 /** Carga saldo a una billetera de comprador desde la del administrador cuando no le alcanza. */
-async function asegurarSaldo(actor, necesario = 0n) {
+// Gas máximo que puede consumir cada operación de un comprador (con margen sobre lo medido en los tests).
+const GAS_MAX = { comprarEntrada: 350000n, revenderEntrada: 400000n, publicarReventa: 250000n, retirarPublicacion: 150000n, reclamarReembolso: 200000n, retirarFondos: 120000n, transferFrom: 120000n, approve: 120000n };
+
+/**
+ * Antes de que un comprador firme, se asegura de que le alcance para el monto y el gas.
+ * El costo del gas se calcula con el precio ACTUAL de la red (en Amoy cambia mucho), y si hay que
+ * cargar se deja un margen extra para que las siguientes operaciones no necesiten otra carga.
+ */
+async function asegurarSaldo(actor, necesario = 0n, metodo = "comprarEntrada") {
   const w = cuentas[actor];
   if (!w || actor === "organizador") return null;
-  // Con margen: solo se recarga cuando el saldo no cubre el monto + un mínimo para gas,
-  // y se recarga de más (CARGA_COMPRADOR) para que las siguientes operaciones no necesiten otra carga.
-  const minimo = ethers.parseEther(process.env.RESERVA_GAS || (ES_LOCAL ? "0.5" : "0.02"));
-  const carga = ethers.parseEther(process.env.CARGA_COMPRADOR || (ES_LOCAL ? "1" : "0.1"));
+  const fee = await ethers.provider.getFeeData();
+  const precioGas = fee.maxFeePerGas ?? fee.gasPrice ?? 0n;
+  const costoGas = ((GAS_MAX[metodo] || 300000n) * precioGas * 13n) / 10n; // +30 % por si sube el precio
+  const extra = ethers.parseEther(process.env.CARGA_COMPRADOR || (ES_LOCAL ? "1" : "0.1"));
   const saldo = await ethers.provider.getBalance(w.address);
-  if (saldo >= necesario + minimo) return null;
-  const monto = necesario + carga - saldo;
+  if (saldo >= necesario + costoGas) return null;
+  const monto = necesario + costoGas + extra - saldo;
+  const saldoAdmin = await ethers.provider.getBalance(admin.address);
+  if (saldoAdmin < monto + ethers.parseEther("0.01")) {
+    throw new ErrorUsuario(`La billetera del organizador (${admin.address}) tiene ${ethers.formatEther(saldoAdmin)} ${MONEDA} y no alcanza para cargarle ${ethers.formatEther(monto)} a ${w.nombre}. Cargá POL en https://faucet.polygon.technology`);
+  }
   const tx = await admin.sendTransaction({ to: w.address, value: monto });
   const recibo = await tx.wait();
-  return registrarTx({ actor: "organizador", descripcion: `Carga de saldo a ${w.nombre} (${ethers.formatEther(monto)} ${MONEDA})`, contrato: null, metodo: "transfer", tx, recibo, valor: monto });
+  return registrarTx({ actor: "organizador", descripcion: `Carga de saldo a ${w.nombre} para gas (${ethers.formatEther(monto)} ${MONEDA})`, contrato: null, metodo: "transfer", tx, recibo, valor: monto });
 }
 
 const ahora = async () => (await ethers.provider.getBlock("latest")).timestamp;
@@ -420,7 +432,7 @@ const ACCIONES = {
     const idEvento = entero(b.idEvento, "Evento");
     const precio = await precioEvento(idEvento);
     const valor = b.montoAlterado ? (precio * 9n) / 10n : precio;
-    const carga = await asegurarSaldo(b.cuenta, valor);
+    const carga = await asegurarSaldo(b.cuenta, valor, "comprarEntrada");
     const r = await enviar({ actor: b.cuenta, signer: c.signer, contrato: C.em, nombreContrato: "EventManager", metodo: "comprarEntrada", args: [idEvento, b.compromiso, b.firma], valor, descripcion: `${c.nombre} compra una entrada del evento #${idEvento}`, forzar: b.forzar });
     if (r.ok) r.tokenId = Number(r.tx.eventos.find((e) => e.nombre === "EntradaComprada")?.args.tokenId ?? 0);
     r.carga = carga;
@@ -428,13 +440,13 @@ const ACCIONES = {
   },
   async "reventa/publicar"(b) {
     const c = reqCuenta(b.cuenta);
-    await asegurarSaldo(b.cuenta, 0n);
+    await asegurarSaldo(b.cuenta, 0n, "publicarReventa");
     const precio = aWei(b.precio, "Precio");
     return enviar({ actor: b.cuenta, signer: c.signer, contrato: C.mk, nombreContrato: "ReventaMarketplace", metodo: "publicarReventa", args: [entero(b.tokenId, "Entrada"), precio], descripcion: `${c.nombre} publica la entrada #${b.tokenId} a ${ethers.formatEther(precio)} ${MONEDA}`, forzar: b.forzar });
   },
   async "reventa/retirar"(b) {
     const c = reqCuenta(b.cuenta);
-    await asegurarSaldo(b.cuenta, 0n);
+    await asegurarSaldo(b.cuenta, 0n, "retirarPublicacion");
     return enviar({ actor: b.cuenta, signer: c.signer, contrato: C.mk, nombreContrato: "ReventaMarketplace", metodo: "retirarPublicacion", args: [entero(b.idPublicacion, "Publicación")], descripcion: `${c.nombre} retira la publicación #${b.idPublicacion}`, forzar: b.forzar });
   },
   async "reventa/comprar"(b) {
@@ -442,7 +454,7 @@ const ACCIONES = {
     const id = entero(b.idPublicacion, "Publicación");
     const pub = await C.mk.obtenerPublicacion(id);
     const valor = b.montoAlterado ? (pub.precioReventa * 9n) / 10n : pub.precioReventa;
-    const carga = await asegurarSaldo(b.cuenta, valor);
+    const carga = await asegurarSaldo(b.cuenta, valor, "revenderEntrada");
     const r = await enviar({ actor: b.cuenta, signer: c.signer, contrato: C.mk, nombreContrato: "ReventaMarketplace", metodo: "revenderEntrada", args: [id, b.compromiso, b.firma], valor, descripcion: `${c.nombre} compra en reventa la entrada #${pub.idToken}`, forzar: b.forzar });
     r.carga = carga;
     return r;
@@ -450,7 +462,7 @@ const ACCIONES = {
   async transferir(b) {
     const c = reqCuenta(b.cuenta);
     const destino = cuentas[b.destino]?.address || b.destino;
-    await asegurarSaldo(b.cuenta, 0n);
+    await asegurarSaldo(b.cuenta, 0n, "transferFrom");
     const metodo = b.metodo === "approve" ? "approve" : "transferFrom";
     const args = metodo === "approve" ? [destino, entero(b.tokenId, "Entrada")] : [c.address, destino, entero(b.tokenId, "Entrada")];
     return enviar({ actor: b.cuenta, signer: c.signer, contrato: C.nft, nombreContrato: "EntradaNFT", metodo, args, descripcion: `${c.nombre} intenta ${metodo === "approve" ? "autorizar a un tercero sobre" : "transferir directo"} la entrada #${b.tokenId}`, forzar: b.forzar });
@@ -476,12 +488,12 @@ const ACCIONES = {
   },
   async reembolso(b) {
     const c = reqCuenta(b.cuenta);
-    await asegurarSaldo(b.cuenta, 0n);
+    await asegurarSaldo(b.cuenta, 0n, "reclamarReembolso");
     return enviar({ actor: b.cuenta, signer: c.signer, contrato: C.em, nombreContrato: "EventManager", metodo: "reclamarReembolso", args: [entero(b.tokenId, "Entrada")], descripcion: `${c.nombre} reclama el reembolso de la entrada #${b.tokenId}`, forzar: b.forzar });
   },
   async retirar(b) {
     const c = reqCuenta(b.cuenta);
-    await asegurarSaldo(b.cuenta, 0n);
+    await asegurarSaldo(b.cuenta, 0n, "retirarFondos");
     return enviar({ actor: b.cuenta, signer: c.signer, contrato: C.em, nombreContrato: "EventManager", metodo: "retirarFondos", args: [], descripcion: `${c.nombre} retira su saldo (patrón pull)`, forzar: b.forzar });
   },
 };
