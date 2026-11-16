@@ -160,17 +160,23 @@ async function enviar({ actor, signer, contrato, nombreContrato, metodo, args, v
     if (!forzar) return { ok: false, rechazadoAntes: true, error: { ...error, contrato: nombreContrato } };
   }
   if (error) {
-    let tx;
+    // Se envía igual con un límite de gas fijo (sin estimar) para que quede registrada como fallida en el explorador.
+    // Quien firma tiene que tener saldo para ese límite de gas al precio actual: si es un comprador, se le carga.
+    const gasLimit = GAS_MAX[metodo] || 300000n;
+    let tx, carga = null;
     try {
-      tx = await c[metodo](...args, { ...overrides, gasLimit: 500000n });
-    } catch (_) {
-      // Los nodos locales de Hardhat no aceptan transacciones que revierten: solo se informa el rechazo.
-      return { ok: false, rechazadoAntes: true, noEnviable: true, error: { ...error, contrato: nombreContrato } };
+      carga = await asegurarSaldo(actor, valor, metodo);
+      tx = await c[metodo](...args, { ...overrides, gasLimit });
+    } catch (e) {
+      // Los nodos locales de Hardhat no aceptan transacciones que revierten; en Amoy, el motivo real se informa.
+      const motivo = ES_LOCAL ? "El nodo local no acepta transacciones que revierten. En Polygon Amoy se puede enviar igual para verla fallida en el explorador." : `La red no aceptó el envío: ${e.shortMessage || e.message}`;
+      console.error(`✘ No se pudo enviar ${metodo} (forzada): ${e.shortMessage || e.message}`);
+      return { ok: false, rechazadoAntes: true, noEnviable: true, motivo, error: { ...error, contrato: nombreContrato } };
     }
     let recibo;
     try { recibo = await tx.wait(); } catch (e) { recibo = e.receipt || (await ethers.provider.getTransactionReceipt(tx.hash)); }
     const reg = registrarTx({ actor, descripcion: descripcion + " (rechazada)", contrato: nombreContrato, metodo, tx, recibo, valor, error });
-    return { ok: false, tx: reg, error: { ...error, contrato: nombreContrato } };
+    return { ok: false, tx: reg, carga, error: { ...error, contrato: nombreContrato } };
   }
   const tx = await c[metodo](...args, overrides);
   const recibo = await tx.wait();
@@ -180,7 +186,7 @@ async function enviar({ actor, signer, contrato, nombreContrato, metodo, args, v
 
 /** Carga saldo a una billetera de comprador desde la del administrador cuando no le alcanza. */
 // Gas máximo que puede consumir cada operación de un comprador (con margen sobre lo medido en los tests).
-const GAS_MAX = { comprarEntrada: 350000n, revenderEntrada: 400000n, publicarReventa: 250000n, retirarPublicacion: 150000n, reclamarReembolso: 200000n, retirarFondos: 120000n, transferFrom: 120000n, approve: 120000n };
+const GAS_MAX = { crearEvento: 400000n, cancelarEvento: 120000n, cerrarEvento: 150000n, validarIngreso: 200000n, comprarEntrada: 350000n, revenderEntrada: 400000n, publicarReventa: 250000n, retirarPublicacion: 150000n, reclamarReembolso: 200000n, retirarFondos: 120000n, transferFrom: 120000n, approve: 120000n };
 
 /**
  * Antes de que un comprador firme, se asegura de que le alcance para el monto y el gas.

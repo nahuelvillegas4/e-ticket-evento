@@ -273,7 +273,7 @@ function ejecutar({ titulo, ruta, cuerpo, fn, firmante, exito, siguiente }) {
         body = bloqueError(r.error || { nombre: "Error" }, r) + (r.tx ? bloqueTx(r.tx) : "");
         const puedeForzar = r.rechazadoAntes && !r.noEnviable && r.error?.nombre !== "DatosInvalidos" && r.error?.nombre !== "DerechoDeAdmision";
         if (puedeForzar) foot = `<button class="btn" type="button" id="mxCerrar">Cerrar</button><button class="btn danger" type="button" id="mxForzar" title="Envía la transacción con gas fijo para que quede registrada como fallida">Enviarla igual${App.cfg.explorador ? " y verla en Polygonscan" : ""}</button>`;
-        if (r.noEnviable) body += `<p class="muted small">El nodo local no acepta transacciones que revierten. En Polygon Amoy se puede enviar igual para verla fallida en el explorador.</p>`;
+        if (r.noEnviable) body += `<p class="muted small">${esc(r.motivo || "No se pudo enviar la transacción a la red.")}</p>`;
       }
       abrirModal(`<div class="modal wide"><div class="modal-head"><div><span class="chip">${r.ok ? "Resultado" : "Rechazo"}</span><h2 style="margin-top:4px">${esc(titulo)}</h2></div></div><div class="modal-body">${body}</div><div class="modal-foot">${foot}</div></div>`, true);
       $("#mxCerrar").onclick = cerrar;
